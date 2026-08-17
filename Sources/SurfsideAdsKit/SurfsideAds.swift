@@ -42,12 +42,26 @@ public final class SurfsideAds {
         public var baseURL: String
 
         /// How long a fetch waits before giving up with `.timeout`. The JS has an
-        /// 8s internal ceiling; this Swift-side backstop should sit above it.
+        /// 8s internal ceiling, but that clock only starts once r.js has loaded
+        /// (a cold CDN fetch can take ~3s), so the Swift-side backstop needs
+        /// real headroom above 8s — not just a second or two — or it will beat
+        /// the JS's own "empty" verdict and misreport no-fill as a timeout.
         public var requestTimeout: TimeInterval
 
         /// Allow Safari's Web Inspector to attach to the hidden WebView. Debug
         /// only — leave `false` in shipping builds.
         public var isInspectable: Bool
+
+        /// Run the fetch WebView **un-hosted** (never added to a window) instead of
+        /// the default offscreen-in-window mode.
+        ///
+        /// Default `false` (offscreen-hosted) is the reliable path: WebKit throttles
+        /// the web-content process of a WebView that is not in a window, so the SDK's
+        /// JS (r.js load, async carousel render, pixels) stalls and fetches time out.
+        /// Set `true` only where hosting is impossible or you've verified the
+        /// headless path works for your case — expect timeouts otherwise. The view is
+        /// invisible either way; this only controls window attachment.
+        public var headless: Bool
 
         public init(
             accountId: String,
@@ -58,8 +72,9 @@ public final class SurfsideAds {
             keywords: String = "product",
             rjsURL: String = "//cdn.surfside.io/ads/2.0.0/r.js",
             baseURL: String = "https://internalhost.com",
-            requestTimeout: TimeInterval = 12,
-            isInspectable: Bool = false
+            requestTimeout: TimeInterval = 15,
+            isInspectable: Bool = false,
+            headless: Bool = false
         ) {
             self.accountId = accountId
             self.siteId = siteId
@@ -71,6 +86,7 @@ public final class SurfsideAds {
             self.baseURL = baseURL
             self.requestTimeout = requestTimeout
             self.isInspectable = isInspectable
+            self.headless = headless
         }
     }
 
@@ -155,13 +171,15 @@ public final class SurfsideAds {
         )
         let timeout = configuration.requestTimeout
         let inspectable = configuration.isInspectable
+        let headless = configuration.headless
 
         // WKWebView is main-thread-only; build and drive the bridge there.
         runOnMain { [weak self] in
             guard let self = self else { return }
             let bridge = CarouselBridge(request: request,
                                         timeout: timeout,
-                                        isInspectable: inspectable)
+                                        isInspectable: inspectable,
+                                        headless: headless)
             self.activeBridges.append(bridge)
             bridge.start { [weak self, weak bridge] result in
                 if let self = self, let bridge = bridge {
