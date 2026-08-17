@@ -11,7 +11,7 @@ final class CarouselWidthMathTests: XCTestCase {
             accountId: "a", siteId: "s", channelId: "c", locationId: "l",
             zoneId: "z", category: "all", keywords: "product",
             strategy: "hybrid", maxItems: maxItems,
-            rjsURL: "//x", baseURL: "https://x", cardWidth: cardWidth
+            rjsURL: "//x", baseURL: "https://x", userId: nil, cardWidth: cardWidth
         )
     }
 

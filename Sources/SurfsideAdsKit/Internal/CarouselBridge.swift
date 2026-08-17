@@ -62,6 +62,11 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
 
         let config = WKWebViewConfiguration()
         config.userContentController = controller
+        // Isolated, non-persistent cookie jar per fetch: we seed a `surfid.`
+        // identity cookie below, and don't want it leaking into — or reading stale
+        // values from — the app's shared cookie store. Matches the JJRC-259 spike
+        // (decisions/002).
+        config.websiteDataStore = .nonPersistent()
 
         // Suppress the web SDK's auto-fired pixels in this hidden fetch WebView.
         // The SDK fires win/impression <img> pixels the instant it renders, but an
@@ -109,6 +114,8 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         // the proven spike; NOT `isHidden`, which can suspend rendering),
         // non-interactive, and parked offscreen. Removed again in `teardown()`.
         // Skipped when `headless` is set (opt-in un-hosted mode — expect timeouts).
+        // Hosting also lets the JJRC-259 cookie seed's setCookie completion fire
+        // reliably — an un-hosted store can stall it.
         #if canImport(UIKit)
         if !headless, let window = Self.hostWindow() {
             webView.alpha = 0
@@ -118,8 +125,18 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         }
         #endif
 
-        webView.loadHTMLString(ShellHTML.page(for: request),
-                               baseURL: URL(string: request.baseURL))
+        // Seed the identity cookie BEFORE the shell loads (so the web ad core reads
+        // it at init), then load. No identity → load straight away, unchanged.
+        let load: () -> Void = { [weak self] in
+            guard let self = self, let webView = self.webView else { return }
+            webView.loadHTMLString(ShellHTML.page(for: self.request),
+                                   baseURL: URL(string: self.request.baseURL))
+        }
+        if let userId = request.userId, !userId.isEmpty {
+            seedIdentityCookie(userId, on: webView, then: load)
+        } else {
+            load()
+        }
     }
 
     // MARK: Pixel suppression
@@ -152,6 +169,61 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
             if Thread.isMainThread { completion(list) }
             else { DispatchQueue.main.async { completion(list) } }
         }
+    }
+
+    // MARK: Identity cookie (JJRC-259)
+
+    /// Seed the first-party `surfid.` cookie the surfside-ads web core reads for
+    /// its anonymous user id, mirroring the web tracker so the *unchanged* web ad
+    /// path picks up the host's tracked `domainUserId` (decisions/002, 003). Calls
+    /// `load` once the cookie is committed — with a short fallback so a fetch never
+    /// hangs if the cookie store's completion doesn't fire (can stall for an
+    /// un-hosted WebView; JJRC-258 must verify the cookie actually lands in-app).
+    private func seedIdentityCookie(_ userId: String,
+                                    on webView: WKWebView,
+                                    then load: @escaping () -> Void) {
+        guard let cookie = Self.surfidCookie(userId: userId, baseURL: request.baseURL) else {
+            load()
+            return
+        }
+        var loaded = false
+        let loadOnce = {
+            guard !loaded else { return }
+            loaded = true
+            load()
+        }
+        webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) { loadOnce() }
+        // Never block a fetch on the cookie store: load anyway shortly after.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { loadOnce() }
+    }
+
+    /// Build `surfid.<hash>=<domainUserId>.<…>`. The web read regex
+    /// (`surfid.(?<site_hash>[a-z0-9]+)=`) accepts any hex hash and takes only the
+    /// FIRST dotted field, so only `userId` is load-bearing; the trailing fields
+    /// mirror the web cookie's shape and are filler here.
+    static func surfidCookie(userId: String, baseURL: String) -> HTTPCookie? {
+        guard let host = URLComponents(string: baseURL)?.host else { return nil }
+        let now = Int(Date().timeIntervalSince1970)
+        let name = "surfid.\(siteHash(for: host))"
+        let value = "\(userId).\(now).1.\(now).\(now).\(UUID().uuidString.lowercased())"
+        let props: [HTTPCookiePropertyKey: Any] = [
+            .domain: host,
+            .path: "/",
+            .name: name,
+            .value: value,
+            .version: 0,
+            .sameSitePolicy: HTTPCookieStringPolicy.sameSiteLax,
+        ]
+        return HTTPCookie(properties: props)
+    }
+
+    /// Deterministic hex tag for the cookie name — one `surfid.` cookie per host,
+    /// like the web tracker, without a crypto dependency (FNV-1a; the value need
+    /// only be stable and hex, since the web reader accepts any hash).
+    static func siteHash(for host: String) -> String {
+        var h: UInt32 = 2166136261
+        for byte in host.utf8 { h = (h ^ UInt32(byte)) &* 16777619 }
+        return String(format: "%08x", h)
     }
 
     /// Resolve once, then tear down. Idempotent.

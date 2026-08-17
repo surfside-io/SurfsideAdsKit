@@ -66,6 +66,14 @@ public final class SurfsideAds {
         /// invisible either way; this only controls window attachment.
         public var headless: Bool
 
+        /// The tracked user's first-party device id, brokered from
+        /// `surfside-ios-tracker`: read `getResolvedIdentity()["domainUserId"]`
+        /// and pass it here so ad requests key off the same identity as tracked
+        /// events. `nil` (the default) means an anonymous fetch. It is seeded as
+        /// the `surfid.` cookie the web ad core already reads — no other change
+        /// needed. (JJRC-259; anonymous device-level id, not a person-level uid2.)
+        public var userId: String?
+
         public init(
             accountId: String,
             siteId: String,
@@ -77,7 +85,8 @@ public final class SurfsideAds {
             baseURL: String = "https://internalhost.com",
             requestTimeout: TimeInterval = 15,
             isInspectable: Bool = false,
-            headless: Bool = false
+            headless: Bool = false,
+            userId: String? = nil
         ) {
             self.accountId = accountId
             self.siteId = siteId
@@ -90,6 +99,7 @@ public final class SurfsideAds {
             self.requestTimeout = requestTimeout
             self.isInspectable = isInspectable
             self.headless = headless
+            self.userId = userId
         }
     }
 
@@ -170,6 +180,7 @@ public final class SurfsideAds {
             maxItems: max(1, maxItems),
             rjsURL: configuration.rjsURL,
             baseURL: configuration.baseURL,
+            userId: configuration.userId,
             cardWidth: 200
         )
         let timeout = configuration.requestTimeout
