@@ -180,8 +180,15 @@ enum ShellHTML {
               clearInterval(timer);
               if (count > 0) { send('ok', products); }
               else {
-                var mounted = !!document.querySelector('surf-carousel');
-                send(mounted ? 'empty' : 'timeout', products,
+                // The SDK REMOVES <surf-carousel> from the DOM when the zone
+                // has no fill (verified live), so element-gone is not a signal
+                // that nothing ran. Whether the SDK ran at all is what splits
+                // "empty" from "timeout": r.js registers the custom element,
+                // so if it's defined the SDK executed and simply served
+                // nothing (empty); if it's not, r.js never loaded (timeout).
+                var sdkRan = !!(window.customElements &&
+                                customElements.get('surf-carousel'));
+                send(sdkRan ? 'empty' : 'timeout', products,
                      'no cards mounted before timeout');
               }
             }

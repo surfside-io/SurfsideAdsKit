@@ -1,5 +1,8 @@
 import Foundation
 @preconcurrency import WebKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The JSON envelope the JS scraper posts back over the bridge.
 ///
@@ -29,6 +32,8 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
     private let request: AdRequest
     private let timeout: TimeInterval
     private let isInspectable: Bool
+    /// When true, the WebView is left un-hosted (no window). See `Configuration.headless`.
+    private let headless: Bool
 
     private var webView: WKWebView?
     /// Called exactly once. Guarded by `didFinish` so the message, a nav failure,
@@ -36,10 +41,11 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
     private var completion: ((Result<[SurfsideProduct], Error>) -> Void)?
     private var didFinish = false
 
-    init(request: AdRequest, timeout: TimeInterval, isInspectable: Bool) {
+    init(request: AdRequest, timeout: TimeInterval, isInspectable: Bool, headless: Bool = false) {
         self.request = request
         self.timeout = timeout
         self.isInspectable = isInspectable
+        self.headless = headless
         super.init()
     }
 
@@ -71,6 +77,22 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         }
         self.webView = webView
 
+        // WebKit throttles/suspends the web process of a WKWebView that is not
+        // in any window, so an un-hosted view never runs the SDK's JS (verified
+        // in-app: every fetch hit the Swift backstop timeout). Host it in the
+        // key window for the lifetime of the fetch — invisible (alpha 0, like
+        // the proven spike; NOT `isHidden`, which can suspend rendering),
+        // non-interactive, and parked offscreen. Removed again in `teardown()`.
+        // Skipped when `headless` is set (opt-in un-hosted mode — expect timeouts).
+        #if canImport(UIKit)
+        if !headless, let window = Self.hostWindow() {
+            webView.alpha = 0
+            webView.isUserInteractionEnabled = false
+            webView.frame = CGRect(x: -400, y: 0, width: 320, height: 320)
+            window.addSubview(webView)
+        }
+        #endif
+
         webView.loadHTMLString(ShellHTML.page(for: request),
                                baseURL: URL(string: request.baseURL))
 
@@ -98,8 +120,23 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         webView?.configuration.userContentController
             .removeScriptMessageHandler(forName: AdRequest.channelName)
         webView?.navigationDelegate = nil
+        #if canImport(UIKit)
+        webView?.removeFromSuperview()
+        #endif
         webView = nil
     }
+
+    #if canImport(UIKit)
+    /// The window to host the hidden WebView in: the key window of a foreground
+    /// scene, else any window at all. `nil` (e.g. under XCTest, or before any
+    /// window exists) falls back to the old un-hosted behavior.
+    private static func hostWindow() -> UIWindow? {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+        return windows.first(where: { $0.isKeyWindow }) ?? windows.first
+    }
+    #endif
 
     // MARK: WKScriptMessageHandler
 
