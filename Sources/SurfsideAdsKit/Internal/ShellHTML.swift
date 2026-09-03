@@ -17,11 +17,12 @@ struct AdRequest {
     let rjsURL: String
     let baseURL: String
 
-    /// The tracked first-party device id (`domainUserId`) the host app brokered
-    /// from `surfside-ios-tracker` (`getResolvedIdentity()["domainUserId"]`), or
-    /// nil for an anonymous fetch. NOT a shell attribute — it is seeded as the
-    /// `surfid.` cookie the unchanged web ad core reads (JJRC-259 path 1; see
-    /// `decisions/002` transport, `003` why domainUserId and not uid2).
+    /// The resolved tracked first-party device id (`domainUserId`): an explicit
+    /// `Configuration.userId` override, else auto-acquired from the Surfside iOS
+    /// tracker, else nil for an anonymous fetch (resolution in ``ResolvedIdentity``,
+    /// JJRC-456). NOT a shell attribute: it is seeded as the `surfid.` cookie the
+    /// unchanged web ad core reads (JJRC-259 path 1; see `decisions/002` transport,
+    /// `003` why domainUserId and not uid2).
     let userId: String?
 
     /// Nominal per-card width (px), also set as `card-max-width`. Only feeds the

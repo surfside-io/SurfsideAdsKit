@@ -66,12 +66,16 @@ public final class SurfsideAds {
         /// invisible either way; this only controls window attachment.
         public var headless: Bool
 
-        /// The tracked user's first-party device id, brokered from
-        /// `surfside-ios-tracker`: read `getResolvedIdentity()["domainUserId"]`
-        /// and pass it here so ad requests key off the same identity as tracked
-        /// events. `nil` (the default) means an anonymous fetch. It is seeded as
-        /// the `surfid.` cookie the web ad core already reads — no other change
-        /// needed. (JJRC-259; anonymous device-level id, not a person-level uid2.)
+        /// Explicit override for the tracked first-party device id. Leave `nil`
+        /// (the default) and AdsKit auto-acquires the id straight from the
+        /// Surfside iOS tracker when it is linked in the app, so the host passes
+        /// nothing (JJRC-456). Set it only to force a specific id or when the
+        /// tracker is absent: a non-empty value here wins over the auto source,
+        /// and both being unavailable means an anonymous fetch.
+        ///
+        /// However it resolves, the id is seeded as the `surfid.` cookie the web
+        /// ad core already reads, so requests key off the same identity as tracked
+        /// events (JJRC-259; anonymous device-level id, not a person-level uid2).
         public var userId: String?
 
         public init(
@@ -106,14 +110,32 @@ public final class SurfsideAds {
     private let configuration: Configuration
     private let clickSession: URLSession
 
+    /// Source of the auto-acquired identity when the host sets no explicit
+    /// `Configuration.userId`. Defaults to the tracker-reflection provider; tests
+    /// inject a stub. See ``IdentityProvider`` / ``ResolvedIdentity``.
+    private let identityProvider: IdentityProvider
+
     /// Keeps in-flight bridges alive until they resolve. Only touched on the main
     /// thread (all fetch work hops there), so a plain array is safe.
     private var activeBridges: [CarouselBridge] = []
 
     /// Full-control initializer.
-    public init(configuration: Configuration, urlSession: URLSession = .shared) {
+    public convenience init(configuration: Configuration, urlSession: URLSession = .shared) {
+        self.init(configuration: configuration,
+                  urlSession: urlSession,
+                  identityProvider: TrackerIdentityProvider())
+    }
+
+    /// Designated initializer. `identityProvider` is injectable so host tests can
+    /// stub the auto-acquire source (the tracker reflection can't run without the
+    /// tracker linked); production uses the ``TrackerIdentityProvider`` default via
+    /// the public initializers.
+    init(configuration: Configuration,
+         urlSession: URLSession = .shared,
+         identityProvider: IdentityProvider) {
         self.configuration = configuration
         self.clickSession = urlSession
+        self.identityProvider = identityProvider
     }
 
     /// Convenience initializer for the common case: just the four placement IDs.
@@ -168,6 +190,13 @@ public final class SurfsideAds {
         strategy: Strategy = .hybrid,
         completion: @escaping (Result<[SurfsideProduct], Error>) -> Void
     ) {
+        // Resolve identity per fetch: explicit host override wins, else the
+        // tracker's auto-acquired domainUserId, else nil (anonymous). The resolved
+        // id feeds the unchanged JJRC-259 cookie seed downstream.
+        let resolvedUserId = ResolvedIdentity.resolve(
+            explicit: configuration.userId,
+            provider: identityProvider
+        )
         let request = AdRequest(
             accountId: configuration.accountId,
             siteId: configuration.siteId,
@@ -180,7 +209,7 @@ public final class SurfsideAds {
             maxItems: max(1, maxItems),
             rjsURL: configuration.rjsURL,
             baseURL: configuration.baseURL,
-            userId: configuration.userId,
+            userId: resolvedUserId,
             cardWidth: 200
         )
         let timeout = configuration.requestTimeout
