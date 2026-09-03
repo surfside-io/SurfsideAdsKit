@@ -65,4 +65,36 @@ final class IdentityResolutionTests: XCTestCase {
     func testDefaultProviderReturnsNilWhenTrackerAbsent() {
         XCTAssertNil(TrackerIdentityProvider().domainUserId())
     }
+
+    // MARK: Fetch wiring
+
+    private func makeAds(configuredUserId: String?, auto: String?) -> SurfsideAds {
+        SurfsideAds(
+            configuration: SurfsideAds.Configuration(
+                accountId: "acct",
+                siteId: "site",
+                channelId: "channel",
+                locationId: "location",
+                userId: configuredUserId
+            ),
+            identityProvider: StubProvider(id: auto)
+        )
+    }
+
+    /// The per-fetch request must carry the resolved id, not the raw
+    /// `Configuration.userId` (the fetch path can't run in host tests, so the
+    /// wiring is locked through the internal request builder).
+    func testFetchRequestCarriesResolvedIdentity() {
+        let explicit = makeAds(configuredUserId: explicitId, auto: autoId)
+            .makeRequest(zoneId: "z", maxItems: 3, strategy: .hybrid)
+        XCTAssertEqual(explicit.userId, explicitId)
+
+        let auto = makeAds(configuredUserId: nil, auto: autoId)
+            .makeRequest(zoneId: "z", maxItems: 3, strategy: .hybrid)
+        XCTAssertEqual(auto.userId, autoId)
+
+        let anonymous = makeAds(configuredUserId: "", auto: nil)
+            .makeRequest(zoneId: "z", maxItems: 3, strategy: .hybrid)
+        XCTAssertNil(anonymous.userId)
+    }
 }

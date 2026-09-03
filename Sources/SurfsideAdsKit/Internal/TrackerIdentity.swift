@@ -15,8 +15,7 @@ protocol IdentityProvider {
 
 /// Resolves the id an ad request should carry: an explicit host override wins,
 /// else the tracker's auto-acquired id, else nil (anonymous). Standalone (not
-/// carousel-specific) so any Surfside view resolves identity the same way; the
-/// banner view added on a sibling branch reuses this.
+/// carousel-specific) so any Surfside view resolves identity the same way.
 enum ResolvedIdentity {
 
     /// Resolution order: explicit ``SurfsideAds/Configuration/userId`` (if the

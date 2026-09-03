@@ -190,28 +190,7 @@ public final class SurfsideAds {
         strategy: Strategy = .hybrid,
         completion: @escaping (Result<[SurfsideProduct], Error>) -> Void
     ) {
-        // Resolve identity per fetch: explicit host override wins, else the
-        // tracker's auto-acquired domainUserId, else nil (anonymous). The resolved
-        // id feeds the unchanged JJRC-259 cookie seed downstream.
-        let resolvedUserId = ResolvedIdentity.resolve(
-            explicit: configuration.userId,
-            provider: identityProvider
-        )
-        let request = AdRequest(
-            accountId: configuration.accountId,
-            siteId: configuration.siteId,
-            channelId: configuration.channelId,
-            locationId: configuration.locationId,
-            zoneId: zoneId,
-            category: configuration.category,
-            keywords: configuration.keywords,
-            strategy: strategy.rawValue,
-            maxItems: max(1, maxItems),
-            rjsURL: configuration.rjsURL,
-            baseURL: configuration.baseURL,
-            userId: resolvedUserId,
-            cardWidth: 200
-        )
+        let request = makeRequest(zoneId: zoneId, maxItems: maxItems, strategy: strategy)
         let timeout = configuration.requestTimeout
         let inspectable = configuration.isInspectable
         let headless = configuration.headless
@@ -231,6 +210,29 @@ public final class SurfsideAds {
                 completion(result)   // already on the main thread
             }
         }
+    }
+
+    /// Build the per-fetch ``AdRequest``, resolving identity at call time.
+    /// Internal so host tests can exercise the wiring with a stubbed provider.
+    func makeRequest(zoneId: String, maxItems: Int, strategy: Strategy) -> AdRequest {
+        AdRequest(
+            accountId: configuration.accountId,
+            siteId: configuration.siteId,
+            channelId: configuration.channelId,
+            locationId: configuration.locationId,
+            zoneId: zoneId,
+            category: configuration.category,
+            keywords: configuration.keywords,
+            strategy: strategy.rawValue,
+            maxItems: max(1, maxItems),
+            rjsURL: configuration.rjsURL,
+            baseURL: configuration.baseURL,
+            userId: ResolvedIdentity.resolve(
+                explicit: configuration.userId,
+                provider: identityProvider
+            ),
+            cardWidth: 200
+        )
     }
 
     // MARK: - Click tracking
