@@ -4,8 +4,10 @@ import Foundation
 ///
 /// Construct once with your placement's identity, then call `fetchProducts` per
 /// ad slot. Each fetch spins up a hidden, one-shot WebView that runs the Surfside
-/// ads SDK, lets it fire its win/impression pixels, scrapes the products, and
-/// tears down. You render the returned ``SurfsideProduct`` values natively.
+/// ads SDK, **suppresses its auto-fired win/impression pixels** (an offscreen
+/// data-pump render is not a viewable impression), scrapes the products, and tears
+/// down. You render the returned ``SurfsideProduct`` values natively, then fire the
+/// pixels yourself on real display via ``recordImpression(_:completion:)``.
 ///
 /// ```swift
 /// let ads = SurfsideAds(accountId: "ec981", siteId: "544fa",
@@ -13,7 +15,8 @@ import Foundation
 ///
 /// let products = try await ads.fetchProducts(zoneId: "6ambm", maxItems: 4)
 /// // ...render products in your own UI...
-/// ads.recordClick(products[0])   // when the shopper taps it
+/// ads.recordImpression(products[0])  // when the product first appears on screen
+/// ads.recordClick(products[0])       // when the shopper taps it
 /// ```
 @available(iOS 14.0, *)
 public final class SurfsideAds {
@@ -202,20 +205,55 @@ public final class SurfsideAds {
     ///   completed without a transport error. Delivered on an arbitrary queue.
     public func recordClick(_ product: SurfsideProduct,
                             completion: ((Bool) -> Void)? = nil) {
-        guard let url = product.clickURL else {
-            completion?(false)
-            return
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        clickSession.dataTask(with: request) { _, response, error in
-            let ok = error == nil
-            _ = response
-            completion?(ok)
-        }.resume()
+        firePixels(product.clickURL.map { [$0] } ?? [], completion: completion)
+    }
+
+    // MARK: - Impression tracking
+
+    /// Fire Surfside's win + impression pixels for a product the shopper actually
+    /// saw. Call this **once, when the product first appears on screen** in your UI.
+    ///
+    /// The SDK's own pixels are suppressed during the hidden fetch (an offscreen
+    /// data-pump render is not a viewable impression), so this call is what records
+    /// the impression server-side. It fires every URL in
+    /// ``SurfsideProduct/winTrackerURLs`` and ``SurfsideProduct/impressionTrackerURLs``
+    /// as fire-and-forget GETs. Viewable trackers are not fired here.
+    ///
+    /// - Parameter completion: Optional; called with `true` only if there was at
+    ///   least one pixel to fire and all of them completed without a transport
+    ///   error. Delivered on an arbitrary queue.
+    public func recordImpression(_ product: SurfsideProduct,
+                                 completion: ((Bool) -> Void)? = nil) {
+        firePixels(product.winTrackerURLs + product.impressionTrackerURLs,
+                   completion: completion)
     }
 
     // MARK: - Helpers
+
+    /// Fire each URL as a fire-and-forget GET. `completion` (optional) reports
+    /// `true` only when there was at least one URL and every request completed
+    /// without a transport error. Delivered on an arbitrary queue.
+    private func firePixels(_ urls: [URL], completion: ((Bool) -> Void)?) {
+        guard !urls.isEmpty else {
+            completion?(false)
+            return
+        }
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var allOK = true
+        for url in urls {
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            group.enter()
+            clickSession.dataTask(with: request) { _, _, error in
+                if error != nil { lock.lock(); allOK = false; lock.unlock() }
+                group.leave()
+            }.resume()
+        }
+        if let completion = completion {
+            group.notify(queue: .global()) { completion(allOK) }
+        }
+    }
 
     /// Run `work` on the main thread without redundantly re-dispatching if we're
     /// already there (keeps the synchronous call path fast in the common case).

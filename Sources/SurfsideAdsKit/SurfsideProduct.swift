@@ -34,12 +34,30 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
     /// string values on the JS side; `nil` when the SDK provided no `ext`.
     public let ext: [String: String]?
 
+    /// Win-notice (nurl) tracker URLs. The web SDK would auto-fire these as
+    /// pixels the instant it renders inside the hidden fetch WebView, but an
+    /// offscreen data-pump render is not a viewable impression, so we suppress
+    /// them there and fire them when the product is actually shown, via
+    /// ``SurfsideAds/recordImpression(_:completion:)``. Always `<img>` pixels.
+    public let winTrackers: [String]?
+    /// Impression tracker URLs to fire on real display, same rationale as
+    /// ``winTrackers``. Only the pixel-type (`<img>`) trackers are carried here:
+    /// those are the ones the fetch WebView's image suppression actually blocks.
+    /// JS-method (`<script>`) impression trackers can't be blocked that way, so
+    /// the SDK fires them once at fetch and they are deliberately omitted here to
+    /// avoid double counting.
+    public let impressionTrackers: [String]?
+    /// Viewable tracker URLs, captured for a future threshold-gated
+    /// `recordViewable`. Not fired by ``SurfsideAds/recordImpression(_:completion:)``.
+    public let viewableTrackers: [String]?
+
     // The JS bridge posts `clickthrough`; everything else matches 1:1.
     enum CodingKeys: String, CodingKey {
         case id, name, price, salePrice, image, brandName, productType
         case thc, strain, cbd
         case clickthroughURL = "clickthrough"
         case sponsored, ext
+        case winTrackers, impressionTrackers, viewableTrackers
     }
 
     /// Memberwise initializer for tests and integrator-side mocking.
@@ -60,7 +78,10 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
         cbd: String? = nil,
         clickthroughURL: String? = nil,
         sponsored: Bool = false,
-        ext: [String: String]? = nil
+        ext: [String: String]? = nil,
+        winTrackers: [String]? = nil,
+        impressionTrackers: [String]? = nil,
+        viewableTrackers: [String]? = nil
     ) {
         self.id = id
         self.name = name
@@ -75,6 +96,9 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
         self.clickthroughURL = clickthroughURL
         self.sponsored = sponsored
         self.ext = ext
+        self.winTrackers = winTrackers
+        self.impressionTrackers = impressionTrackers
+        self.viewableTrackers = viewableTrackers
     }
 }
 
@@ -82,5 +106,20 @@ public extension SurfsideProduct {
     /// The click destination as a parsed `URL`, if present and valid.
     var clickURL: URL? {
         clickthroughURL.flatMap(URL.init(string:))
+    }
+
+    /// The win-notice URLs parsed to `URL`, dropping any that don't parse.
+    var winTrackerURLs: [URL] {
+        (winTrackers ?? []).compactMap(URL.init(string:))
+    }
+
+    /// The impression URLs parsed to `URL`, dropping any that don't parse.
+    var impressionTrackerURLs: [URL] {
+        (impressionTrackers ?? []).compactMap(URL.init(string:))
+    }
+
+    /// The viewable URLs parsed to `URL`, dropping any that don't parse.
+    var viewableTrackerURLs: [URL] {
+        (viewableTrackers ?? []).compactMap(URL.init(string:))
     }
 }
