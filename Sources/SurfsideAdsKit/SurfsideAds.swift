@@ -213,8 +213,8 @@ public final class SurfsideAds {
     /// Fire Surfside's win + impression pixels for a product the shopper actually
     /// saw. Call this **once, when the product first appears on screen** in your UI.
     ///
-    /// The SDK's own pixels are suppressed during the hidden fetch (an offscreen
-    /// data-pump render is not a viewable impression), so this call is what records
+    /// The SDK's own pixels are suppressed during the hidden fetch (rationale:
+    /// CarouselBridge's suppression notes), so this call is what records
     /// the impression server-side. It fires every URL in
     /// ``SurfsideProduct/winTrackerURLs`` and ``SurfsideProduct/impressionTrackerURLs``
     /// as fire-and-forget GETs. Viewable trackers are not fired here.

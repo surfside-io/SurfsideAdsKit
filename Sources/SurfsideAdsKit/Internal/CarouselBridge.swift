@@ -128,14 +128,14 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
     /// keeps the web SDK's win/impression `<img>` pixels from firing during the
     /// offscreen fetch render; scripts (r.js) and xhr (the bid request) are left
     /// alone so the SDK still runs. JS-method (`<script>`) impression trackers are
-    /// not image loads and so fire once here — that residual is handled scraper-side
+    /// not image loads and so fire once here; that residual is handled scraper-side
     /// by not re-firing them on display (see ShellHTML.trackerUrls).
     private static let suppressionIdentifier = "surfside-fetch-image-suppression"
     private static let suppressionRules =
         #"[{"trigger":{"url-filter":".*","resource-type":["image"]},"action":{"type":"block"}}]"#
 
     /// Compile the image-suppression rule list, delivering it on the main thread.
-    /// Yields `nil` if the store is unavailable or compilation fails — a failed
+    /// Yields `nil` if the store is unavailable or compilation fails; a failed
     /// compile must not block a fetch, it just means pixels aren't suppressed for
     /// that run.
     private static func compileImageSuppression(

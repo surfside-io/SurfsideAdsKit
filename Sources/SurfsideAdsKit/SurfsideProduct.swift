@@ -34,18 +34,14 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
     /// string values on the JS side; `nil` when the SDK provided no `ext`.
     public let ext: [String: String]?
 
-    /// Win-notice (nurl) tracker URLs. The web SDK would auto-fire these as
-    /// pixels the instant it renders inside the hidden fetch WebView, but an
-    /// offscreen data-pump render is not a viewable impression, so we suppress
-    /// them there and fire them when the product is actually shown, via
-    /// ``SurfsideAds/recordImpression(_:completion:)``. Always `<img>` pixels.
+    /// Win-notice (nurl) tracker URLs, suppressed during the hidden fetch and
+    /// fired on real display via ``SurfsideAds/recordImpression(_:completion:)``.
+    /// Pixel-type (`<img>`) trackers only, like ``impressionTrackers``.
     public let winTrackers: [String]?
-    /// Impression tracker URLs to fire on real display, same rationale as
-    /// ``winTrackers``. Only the pixel-type (`<img>`) trackers are carried here:
-    /// those are the ones the fetch WebView's image suppression actually blocks.
-    /// JS-method (`<script>`) impression trackers can't be blocked that way, so
-    /// the SDK fires them once at fetch and they are deliberately omitted here to
-    /// avoid double counting.
+    /// Impression tracker URLs to fire on real display. Pixel-type (`<img>`)
+    /// trackers only; `<script>` trackers fire once at fetch and are omitted
+    /// here to avoid double counting (rationale: CarouselBridge's suppression
+    /// notes).
     public let impressionTrackers: [String]?
     /// Viewable tracker URLs, captured for a future threshold-gated
     /// `recordViewable`. Not fired by ``SurfsideAds/recordImpression(_:completion:)``.

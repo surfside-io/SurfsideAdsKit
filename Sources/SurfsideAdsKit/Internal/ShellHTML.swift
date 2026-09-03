@@ -128,7 +128,7 @@ enum ShellHTML {
 
           // Pull tracker URLs out of the built card's trackers object. A tracker
           // is {type:'pixel', url} or {type:'script', src}. When pixelOnly is set
-          // we keep only the img pixels — the ones the fetch WebView's image
+          // we keep only the img pixels, the ones the fetch WebView's image
           // suppression actually blocks, so firing them on display can't double
           // count. Script trackers fire once at fetch (unsuppressed) and are left
           // out of the fire set on purpose.
@@ -166,7 +166,7 @@ enum ShellHTML {
                   clickthrough: clean(pd.clickthrough),
                   sponsored: !!pd.sponsored,
                   ext: flattenExt(p.ext),
-                  winTrackers: trackerUrls(named, 'win', false),
+                  winTrackers: trackerUrls(named, 'win', true),
                   impressionTrackers: trackerUrls(named, 'impression', true),
                   viewableTrackers: trackerUrls(named, 'viewable', false)
                 };
