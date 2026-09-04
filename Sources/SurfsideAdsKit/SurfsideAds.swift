@@ -66,12 +66,16 @@ public final class SurfsideAds {
         /// invisible either way; this only controls window attachment.
         public var headless: Bool
 
-        /// The tracked user's first-party device id, brokered from
-        /// `surfside-ios-tracker`: read `getResolvedIdentity()["domainUserId"]`
-        /// and pass it here so ad requests key off the same identity as tracked
-        /// events. `nil` (the default) means an anonymous fetch. It is seeded as
-        /// the `surfid.` cookie the web ad core already reads — no other change
-        /// needed. (JJRC-259; anonymous device-level id, not a person-level uid2.)
+        /// Explicit override for the tracked first-party device id. Leave `nil`
+        /// (the default) and AdsKit auto-acquires the id straight from the
+        /// Surfside iOS tracker when it is linked in the app, so the host passes
+        /// nothing (JJRC-456). Set it only to force a specific id or when the
+        /// tracker is absent: a non-empty value here wins over the auto source,
+        /// and both being unavailable means an anonymous fetch.
+        ///
+        /// However it resolves, the id is seeded as the `surfid.` cookie the web
+        /// ad core already reads, so requests key off the same identity as tracked
+        /// events (JJRC-259; anonymous device-level id, not a person-level uid2).
         public var userId: String?
 
         public init(
@@ -106,14 +110,32 @@ public final class SurfsideAds {
     private let configuration: Configuration
     private let clickSession: URLSession
 
+    /// Source of the auto-acquired identity when the host sets no explicit
+    /// `Configuration.userId`. Defaults to the tracker-reflection provider; tests
+    /// inject a stub. See ``IdentityProvider`` / ``ResolvedIdentity``.
+    private let identityProvider: IdentityProvider
+
     /// Keeps in-flight bridges alive until they resolve. Only touched on the main
     /// thread (all fetch work hops there), so a plain array is safe.
     private var activeBridges: [CarouselBridge] = []
 
     /// Full-control initializer.
-    public init(configuration: Configuration, urlSession: URLSession = .shared) {
+    public convenience init(configuration: Configuration, urlSession: URLSession = .shared) {
+        self.init(configuration: configuration,
+                  urlSession: urlSession,
+                  identityProvider: TrackerIdentityProvider())
+    }
+
+    /// Designated initializer. `identityProvider` is injectable so host tests can
+    /// stub the auto-acquire source (the tracker reflection can't run without the
+    /// tracker linked); production uses the ``TrackerIdentityProvider`` default via
+    /// the public initializers.
+    init(configuration: Configuration,
+         urlSession: URLSession = .shared,
+         identityProvider: IdentityProvider) {
         self.configuration = configuration
         self.clickSession = urlSession
+        self.identityProvider = identityProvider
     }
 
     /// Convenience initializer for the common case: just the four placement IDs.
@@ -168,21 +190,7 @@ public final class SurfsideAds {
         strategy: Strategy = .hybrid,
         completion: @escaping (Result<[SurfsideProduct], Error>) -> Void
     ) {
-        let request = AdRequest(
-            accountId: configuration.accountId,
-            siteId: configuration.siteId,
-            channelId: configuration.channelId,
-            locationId: configuration.locationId,
-            zoneId: zoneId,
-            category: configuration.category,
-            keywords: configuration.keywords,
-            strategy: strategy.rawValue,
-            maxItems: max(1, maxItems),
-            rjsURL: configuration.rjsURL,
-            baseURL: configuration.baseURL,
-            userId: configuration.userId,
-            cardWidth: 200
-        )
+        let request = makeRequest(zoneId: zoneId, maxItems: maxItems, strategy: strategy)
         let timeout = configuration.requestTimeout
         let inspectable = configuration.isInspectable
         let headless = configuration.headless
@@ -202,6 +210,29 @@ public final class SurfsideAds {
                 completion(result)   // already on the main thread
             }
         }
+    }
+
+    /// Build the per-fetch ``AdRequest``, resolving identity at call time.
+    /// Internal so host tests can exercise the wiring with a stubbed provider.
+    func makeRequest(zoneId: String, maxItems: Int, strategy: Strategy) -> AdRequest {
+        AdRequest(
+            accountId: configuration.accountId,
+            siteId: configuration.siteId,
+            channelId: configuration.channelId,
+            locationId: configuration.locationId,
+            zoneId: zoneId,
+            category: configuration.category,
+            keywords: configuration.keywords,
+            strategy: strategy.rawValue,
+            maxItems: max(1, maxItems),
+            rjsURL: configuration.rjsURL,
+            baseURL: configuration.baseURL,
+            userId: ResolvedIdentity.resolve(
+                explicit: configuration.userId,
+                provider: identityProvider
+            ),
+            cardWidth: 200
+        )
     }
 
     // MARK: - Click tracking
