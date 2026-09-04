@@ -126,6 +126,21 @@ enum ShellHTML {
             return any ? out : null;
           }
 
+          // Pull tracker URLs out of the built card's trackers object. A tracker
+          // is {type:'pixel', url} or {type:'script', src}. When pixelOnly is set
+          // we keep only the img pixels, the ones the fetch WebView's image
+          // suppression actually blocks, so firing them on display can't double
+          // count. Script trackers fire once at fetch (unsuppressed) and are left
+          // out of the fire set on purpose.
+          function trackerUrls(named, key, pixelOnly) {
+            var arr = named && named[key];
+            if (!Array.prototype.slice.call(arr || []).length) return [];
+            return Array.prototype.slice.call(arr)
+              .filter(function (t) { return t && (!pixelOnly || t.type === 'pixel'); })
+              .map(function (t) { return t && (t.url || t.src); })
+              .filter(function (u) { return typeof u === 'string' && u; });
+          }
+
           function readProducts() {
             var carousel = document.querySelector('surf-carousel');
             var root = carousel && carousel.shadowRoot;
@@ -136,6 +151,7 @@ enum ShellHTML {
               .filter(function (pd) { return pd && pd.product; })
               .map(function (pd) {
                 var p = pd.product;
+                var named = (pd.trackers && pd.trackers.namedTrackers) || {};
                 return {
                   id: String(p.id != null ? p.id : ''),
                   name: clean(p.name),
@@ -149,7 +165,10 @@ enum ShellHTML {
                   cbd: clean(p.cbd),
                   clickthrough: clean(pd.clickthrough),
                   sponsored: !!pd.sponsored,
-                  ext: flattenExt(p.ext)
+                  ext: flattenExt(p.ext),
+                  winTrackers: trackerUrls(named, 'win', true),
+                  impressionTrackers: trackerUrls(named, 'impression', true),
+                  viewableTrackers: trackerUrls(named, 'viewable', false)
                 };
               });
           }

@@ -63,6 +63,31 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         let config = WKWebViewConfiguration()
         config.userContentController = controller
 
+        // Suppress the web SDK's auto-fired pixels in this hidden fetch WebView.
+        // The SDK fires win/impression <img> pixels the instant it renders, but an
+        // offscreen data-pump render is not a viewable impression, so blocking image
+        // loads keeps them from firing here; we re-fire on real native display via
+        // recordImpression. Compiling a content-rule list is async, so build + load
+        // the WebView in its callback. r.js (script) and the bid request (xhr) are
+        // untouched, so the SDK still runs and productData is still scrapeable.
+        Self.compileImageSuppression { [weak self] ruleList in
+            guard let self = self, !self.didFinish else { return }
+            if let ruleList = ruleList { controller.add(ruleList) }
+            self.buildAndLoad(config: config)
+        }
+
+        // Backstop: the JS has its own 8s ceiling, but if it (or the content-rule
+        // compile) never runs we'd hang forever. Resolve as .timeout after
+        // `timeout` seconds unless already done.
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
+            self?.finish(.failure(SurfsideAdsError.timeout))
+        }
+    }
+
+    /// Create the hidden WebView from the prepared config, host it offscreen, and
+    /// kick off the shell load. Split out of `start` so it runs after the async
+    /// content-rule compile. Main-thread only, like the rest of the bridge.
+    private func buildAndLoad(config: WKWebViewConfiguration) {
         // Give it a real, non-zero frame. The carousel width is forced in CSS so
         // the card count doesn't depend on this, but a genuine viewport keeps the
         // document's layout/JS behaving like the proven spike.
@@ -95,11 +120,37 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
 
         webView.loadHTMLString(ShellHTML.page(for: request),
                                baseURL: URL(string: request.baseURL))
+    }
 
-        // Backstop: the JS has its own 8s ceiling, but if it never runs we'd hang
-        // forever. Resolve as .timeout after `timeout` seconds unless already done.
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
-            self?.finish(.failure(SurfsideAdsError.timeout))
+    // MARK: Pixel suppression
+
+    /// Content-rule identifier + JSON for the fetch WebView. Blocking image loads
+    /// keeps the web SDK's win/impression `<img>` pixels from firing during the
+    /// offscreen fetch render; scripts (r.js) and xhr (the bid request) are left
+    /// alone so the SDK still runs. JS-method (`<script>`) impression trackers are
+    /// not image loads and so fire once here; that residual is handled scraper-side
+    /// by not re-firing them on display (see ShellHTML.trackerUrls).
+    private static let suppressionIdentifier = "surfside-fetch-image-suppression"
+    private static let suppressionRules =
+        #"[{"trigger":{"url-filter":".*","resource-type":["image"]},"action":{"type":"block"}}]"#
+
+    /// Compile the image-suppression rule list, delivering it on the main thread.
+    /// Yields `nil` if the store is unavailable or compilation fails; a failed
+    /// compile must not block a fetch, it just means pixels aren't suppressed for
+    /// that run.
+    private static func compileImageSuppression(
+        _ completion: @escaping (WKContentRuleList?) -> Void
+    ) {
+        guard let store = WKContentRuleListStore.default() else {
+            completion(nil)
+            return
+        }
+        store.compileContentRuleList(
+            forIdentifier: suppressionIdentifier,
+            encodedContentRuleList: suppressionRules
+        ) { list, _ in
+            if Thread.isMainThread { completion(list) }
+            else { DispatchQueue.main.async { completion(list) } }
         }
     }
 

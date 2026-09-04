@@ -34,12 +34,26 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
     /// string values on the JS side; `nil` when the SDK provided no `ext`.
     public let ext: [String: String]?
 
+    /// Win-notice (nurl) tracker URLs, suppressed during the hidden fetch and
+    /// fired on real display via ``SurfsideAds/recordImpression(_:completion:)``.
+    /// Pixel-type (`<img>`) trackers only, like ``impressionTrackers``.
+    public let winTrackers: [String]?
+    /// Impression tracker URLs to fire on real display. Pixel-type (`<img>`)
+    /// trackers only; `<script>` trackers fire once at fetch and are omitted
+    /// here to avoid double counting (rationale: CarouselBridge's suppression
+    /// notes).
+    public let impressionTrackers: [String]?
+    /// Viewable tracker URLs, captured for a future threshold-gated
+    /// `recordViewable`. Not fired by ``SurfsideAds/recordImpression(_:completion:)``.
+    public let viewableTrackers: [String]?
+
     // The JS bridge posts `clickthrough`; everything else matches 1:1.
     enum CodingKeys: String, CodingKey {
         case id, name, price, salePrice, image, brandName, productType
         case thc, strain, cbd
         case clickthroughURL = "clickthrough"
         case sponsored, ext
+        case winTrackers, impressionTrackers, viewableTrackers
     }
 
     /// Memberwise initializer for tests and integrator-side mocking.
@@ -60,7 +74,10 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
         cbd: String? = nil,
         clickthroughURL: String? = nil,
         sponsored: Bool = false,
-        ext: [String: String]? = nil
+        ext: [String: String]? = nil,
+        winTrackers: [String]? = nil,
+        impressionTrackers: [String]? = nil,
+        viewableTrackers: [String]? = nil
     ) {
         self.id = id
         self.name = name
@@ -75,6 +92,9 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
         self.clickthroughURL = clickthroughURL
         self.sponsored = sponsored
         self.ext = ext
+        self.winTrackers = winTrackers
+        self.impressionTrackers = impressionTrackers
+        self.viewableTrackers = viewableTrackers
     }
 }
 
@@ -82,5 +102,20 @@ public extension SurfsideProduct {
     /// The click destination as a parsed `URL`, if present and valid.
     var clickURL: URL? {
         clickthroughURL.flatMap(URL.init(string:))
+    }
+
+    /// The win-notice URLs parsed to `URL`, dropping any that don't parse.
+    var winTrackerURLs: [URL] {
+        (winTrackers ?? []).compactMap(URL.init(string:))
+    }
+
+    /// The impression URLs parsed to `URL`, dropping any that don't parse.
+    var impressionTrackerURLs: [URL] {
+        (impressionTrackers ?? []).compactMap(URL.init(string:))
+    }
+
+    /// The viewable URLs parsed to `URL`, dropping any that don't parse.
+    var viewableTrackerURLs: [URL] {
+        (viewableTrackers ?? []).compactMap(URL.init(string:))
     }
 }

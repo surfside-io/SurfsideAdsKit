@@ -101,4 +101,36 @@ final class SurfsideProductDecodeTests: XCTestCase {
         XCTAssertNotNil(SurfsideAdsError.loadFailed("boom").errorDescription)
         XCTAssertNotNil(SurfsideAdsError.decodeFailed.errorDescription)
     }
+
+    func testDecodesTrackerArraysAndParsesURLs() throws {
+        let product = try decode("""
+        {
+          "id": "t1",
+          "sponsored": true,
+          "winTrackers": ["https://win.surfside.io/a", "https://win.surfside.io/b"],
+          "impressionTrackers": ["https://imp.surfside.io/a"],
+          "viewableTrackers": ["https://view.surfside.io/a"]
+        }
+        """)
+
+        XCTAssertEqual(product.winTrackers?.count, 2)
+        XCTAssertEqual(product.impressionTrackers, ["https://imp.surfside.io/a"])
+        XCTAssertEqual(product.viewableTrackers, ["https://view.surfside.io/a"])
+        XCTAssertEqual(product.winTrackerURLs.map(\.host), ["win.surfside.io", "win.surfside.io"])
+        XCTAssertEqual(product.impressionTrackerURLs.map(\.absoluteString),
+                       ["https://imp.surfside.io/a"])
+        XCTAssertEqual(product.viewableTrackerURLs.first?.host, "view.surfside.io")
+    }
+
+    func testTrackerArraysAbsentDecodeToNilAndEmptyURLs() throws {
+        let p = try decode("""
+        { "id": "t2", "sponsored": false }
+        """)
+
+        XCTAssertNil(p.winTrackers)
+        XCTAssertNil(p.impressionTrackers)
+        XCTAssertNil(p.viewableTrackers)
+        XCTAssertTrue(p.winTrackerURLs.isEmpty)
+        XCTAssertTrue(p.impressionTrackerURLs.isEmpty)
+    }
 }
