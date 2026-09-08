@@ -13,6 +13,7 @@ import Foundation
 public struct SurfsideProduct: Identifiable, Decodable, Equatable {
     /// Stable catalog id for the product. Always present.
     public let id: String
+    /// Display name of the product.
     public let name: String?
     /// List price as the SDK formatted it (a display string, e.g. `"$40.00"`).
     public let price: String?
@@ -20,10 +21,15 @@ public struct SurfsideProduct: Identifiable, Decodable, Equatable {
     public let salePrice: String?
     /// Absolute product image URL (typically an ATS-compliant CDN URL).
     public let image: String?
+    /// Brand name, when the catalog provides one.
     public let brandName: String?
+    /// Product type or category label from the catalog.
     public let productType: String?
+    /// THC content as the catalog reported it (cannabis catalogs).
     public let thc: String?
+    /// Strain name (cannabis catalogs).
     public let strain: String?
+    /// CBD content as the catalog reported it (cannabis catalogs).
     public let cbd: String?
     /// Where a tap on this product should send the shopper. Pass the product to
     /// ``SurfsideAds/recordClick(_:completion:)`` to fire Surfside's click pixel.

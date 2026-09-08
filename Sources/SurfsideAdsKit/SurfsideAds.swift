@@ -23,20 +23,31 @@ public final class SurfsideAds {
 
     /// Which inventory the SDK should serve.
     public enum Strategy: String {
-        case sponsored, hybrid, recommended
+        /// Paid inventory only.
+        case sponsored
+        /// Both paid and algorithmically recommended inventory (the default).
+        case hybrid
+        /// Algorithmically recommended inventory only.
+        case recommended
     }
 
     /// Placement identity plus a few advanced knobs. Most integrators only set
     /// the four IDs and use the defaults for everything else.
     public struct Configuration {
+        /// Surfside account id for the placement.
         public var accountId: String
+        /// Site id within the account.
         public var siteId: String
+        /// Channel id within the site.
         public var channelId: String
+        /// Location id identifying the specific placement.
         public var locationId: String
 
-        /// The carousel refuses to render unless BOTH are present (SDK's
-        /// `attributesLoaded()` gate). Defaults match the proven spike.
+        /// Product category to serve. The carousel refuses to render unless both
+        /// `category` and `keywords` are present (SDK's `attributesLoaded()` gate);
+        /// the default matches the proven spike.
         public var category: String
+        /// Product keywords to serve against. See `category` for the render gate.
         public var keywords: String
 
         /// Pinned r.js bundle. Override only to test against a different build.
@@ -78,6 +89,8 @@ public final class SurfsideAds {
         /// events (JJRC-259; anonymous device-level id, not a person-level uid2).
         public var userId: String?
 
+        /// Creates a configuration. Only the four placement IDs are required; every
+        /// other parameter has a shipping-safe default. See each property for the knobs.
         public init(
             accountId: String,
             siteId: String,
