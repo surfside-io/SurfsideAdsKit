@@ -18,6 +18,7 @@ public enum SurfsideAdsError: Error, Equatable {
 }
 
 extension SurfsideAdsError: LocalizedError {
+    /// Human-readable description of the failure.
     public var errorDescription: String? {
         switch self {
         case .loadFailed(let reason):

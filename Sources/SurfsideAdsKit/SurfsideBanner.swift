@@ -25,6 +25,15 @@ public struct SurfsideBanner: UIViewRepresentable {
     private let onNoFill: (() -> Void)?
     private let onError: ((SurfsideAdsError) -> Void)?
 
+    /// Creates a banner.
+    ///
+    /// - Parameters:
+    ///   - configuration: Placement identity (see ``SurfsideAds/Configuration``).
+    ///   - zoneId: The banner zone to serve.
+    ///   - size: The banner size to request and reserve in layout.
+    ///   - onLoad: Called when a banner fills, with the rendered size if known.
+    ///   - onNoFill: Called when the zone has nothing to serve (hide the slot).
+    ///   - onError: Called when the load fails.
     public init(configuration: SurfsideAds.Configuration,
                 zoneId: String,
                 size: CGSize,
