@@ -90,8 +90,7 @@ public final class SurfsideAds {
         public var userId: String?
 
         /// Creates a configuration. Only the four placement IDs are required; every
-        /// other parameter defaults to a shipping-safe value, so most integrators
-        /// pass just the IDs. See each property for what the advanced knobs do.
+        /// other parameter has a shipping-safe default. See each property for the knobs.
         public init(
             accountId: String,
             siteId: String,
