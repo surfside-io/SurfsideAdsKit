@@ -9,7 +9,7 @@ SurfsideAdsKit is the iOS client edge of Surfside's commerce media platform. It 
 
 Key properties:
 
-- **No third-party dependencies**: Foundation + WebKit only. The Surfside iOS tracker is optional; when it is linked, AdsKit picks up its device identity automatically.
+- **No third-party dependencies**: Foundation + WebKit only. The Surfside iOS tracker is optional; when [surfside-ios-tracker](https://github.com/surfside-io/surfside-ios-tracker) **2.1.0 or later** is linked, AdsKit picks up its device identity automatically.
 - **iOS 14+**, Swift 5.7+, async/await and completion-handler APIs.
 - **Small surface area**: one type to construct, one call to fetch, one call each to record an impression and a click.
 
@@ -98,6 +98,8 @@ Working on the SDK itself, or from a local clone? Use a local path instead:
 ```
 
 The module and the package share the name: `import SurfsideAdsKit`.
+
+**Pairing with the tracker.** AdsKit has no dependency on [surfside-ios-tracker](https://github.com/surfside-io/surfside-ios-tracker), but if your app also links it, use **2.1.0 or later**. That release added the identity read AdsKit relies on; against an older tracker AdsKit does not fail or warn, it silently falls back to anonymous ad requests, so tracked events and ad requests are no longer keyed off the same device id. See [Identity](#identity).
 
 ---
 
