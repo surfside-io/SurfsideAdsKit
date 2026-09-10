@@ -10,10 +10,10 @@ import UIKit
 ///     configuration: .init(accountId: "ec981", siteId: "544fa",
 ///                          channelId: "00000", locationId: "greengoddess"),
 ///     zoneId: "6ambm",
-///     size: CGSize(width: 320, height: 50),
+///     size: CGSize(width: 8, height: 1),     // the zone's banner ratio (8x1, 4x1, 2x1)
 ///     onNoFill: { /* hide the row */ }
 /// )
-/// .frame(width: 320, height: 50)
+/// .frame(width: 320, height: 40)             // 8x1 at 320pt wide
 /// ```
 @available(iOS 14.0, *)
 public struct SurfsideBanner: UIViewRepresentable {

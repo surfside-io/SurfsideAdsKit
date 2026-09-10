@@ -44,7 +44,7 @@ sequenceDiagram
     Kit->>WV: load shell HTML + Surfside r.js (off-screen, never shown)
     WV->>SF: bid request for the zone
     SF-->>WV: sponsored products
-    Note over WV,SF: cards mount off-screen; auto pixels are SUPPRESSED (not a real impression)
+    Note over WV,SF: cards mount off-screen, auto pixels are SUPPRESSED (not a real impression)
     WV-->>Kit: scraped products + their tracker URLs (postMessage)
     Kit->>WV: tear down (one-shot)
     Kit-->>App: [SurfsideProduct]
@@ -161,12 +161,12 @@ SurfsideBanner(
     configuration: .init(accountId: "ec981", siteId: "544fa",
                          channelId: "00000", locationId: "greengoddess"),
     zoneId: "6ambm",
-    size: CGSize(width: 320, height: 50),
+    size: CGSize(width: 8, height: 1),      // the zone's banner ratio: 8x1 here
     onLoad: { renderedSize in /* optional */ },
     onNoFill: { /* hide the row */ },
     onError: { error in log(error) }
 )
-.frame(width: 320, height: 50)
+.frame(width: 320, height: 40)              // lay it out at that ratio: 8x1 at 320pt wide
 ```
 
 **UIKit:**
@@ -176,14 +176,16 @@ let banner = SurfsideBannerView(
     configuration: .init(accountId: "ec981", siteId: "544fa",
                          channelId: "00000", locationId: "greengoddess"),
     zoneId: "6ambm",
-    size: CGSize(width: 320, height: 50)
+    size: CGSize(width: 4, height: 1)      // a 4x1 banner
 )
 banner.delegate = self                 // SurfsideBannerViewDelegate, all methods optional
 stackView.addArrangedSubview(banner)   // auto-loads once it enters a window
+banner.heightAnchor.constraint(equalTo: banner.widthAnchor, multiplier: 1.0 / 4.0).isActive = true
 ```
 
 Banner semantics, in contrast to the product fetch:
 
+- **`size` is the banner ratio, not a pixel box.** Surfside serves banners by aspect ratio (`8x1`, `4x1`, `2x1`), and `size` goes into the bid request as those two integers, so pass the ratio the zone is configured for. Lay the view out at whatever real size fits your screen at that ratio (an 8x1 banner at 320pt wide is 320×40; 4x1 is 320×80; 2x1 is 320×160). Once the creative renders, the view adopts its measured size and reports it through `onLoad` / `surfsideBannerViewDidLoad`.
 - **Nothing is suppressed.** The banner is a real on-screen render, so the SDK's own win/impression pixels firing is correct measurement. There is no `recordImpression` to call for banners.
 - **Load outcomes** surface via the delegate (or the SwiftUI closures): loaded (with the measured creative size when readable), no-fill (the view has already collapsed; treat it as normal), or a genuine error.
 - **Loading is one-shot per view.** `autoLoad` (default `true`) loads on first entering a window; set it `false` and call `load()` to drive it manually. To reload, create a fresh view.
@@ -265,7 +267,7 @@ struct SurfsideProduct: Identifiable, Decodable, Equatable {
 final class SurfsideBannerView: UIView {
     init(configuration: SurfsideAds.Configuration, zoneId: String, size: CGSize,
          delegate: SurfsideBannerViewDelegate? = nil)
-    convenience init(accountId:siteId:channelId:locationId:zoneId:size:)
+    convenience init(accountId:siteId:channelId:locationId:zoneId:width:height:)
     weak var delegate: SurfsideBannerViewDelegate?
     var autoLoad: Bool          // default true: load on first entering a window
     func load()                 // idempotent; first call wins

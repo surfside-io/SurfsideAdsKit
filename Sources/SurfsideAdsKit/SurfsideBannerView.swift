@@ -42,7 +42,7 @@ public extension SurfsideBannerViewDelegate {
 ///     configuration: .init(accountId: "ec981", siteId: "544fa",
 ///                          channelId: "00000", locationId: "greengoddess"),
 ///     zoneId: "6ambm",
-///     size: CGSize(width: 320, height: 50)
+///     size: CGSize(width: 4, height: 1)      // the zone's banner ratio (8x1, 4x1, 2x1)
 /// )
 /// banner.delegate = self
 /// stackView.addArrangedSubview(banner)   // auto-loads once it enters a window
