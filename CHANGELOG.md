@@ -6,7 +6,7 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ---
 
-## 1.0.0 (unreleased)
+## 1.0.0 — 2026-09-10
 
 First tagged release. Everything below shipped to `main` through PRs #1, #3, #5, and #6
 and is released together as 1.0.0.
