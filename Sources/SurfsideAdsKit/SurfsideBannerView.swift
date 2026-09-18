@@ -157,6 +157,7 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
         // holds its handlers, so adding `self` directly would retain-cycle the view.
         let controller = WKUserContentController()
         controller.add(WeakScriptMessageHandler(self), name: BannerRequest.channelName)
+        DebugConsole.install(on: controller, label: "banner \(request.zoneId)", debug: isInspectable)
 
         let config = WKWebViewConfiguration()
         config.userContentController = controller
@@ -188,7 +189,7 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
 
         timeline.mark("shellLoadStart")
         webView.loadHTMLString(BannerShellHTML.page(for: request),
-                               baseURL: URL(string: request.baseURL))
+                               baseURL: DebugConsole.pageURL(baseURL: request.baseURL, debug: isInspectable))
     }
 
     // MARK: Sizing

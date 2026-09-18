@@ -65,6 +65,7 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         // `window.webkit.messageHandlers.surfside` exists when our script runs.
         let controller = WKUserContentController()
         controller.add(self, name: AdRequest.channelName)
+        DebugConsole.install(on: controller, label: "fetch \(request.zoneId)", debug: isInspectable)
 
         let config = WKWebViewConfiguration()
         config.userContentController = controller
@@ -139,7 +140,8 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
             guard let self = self, let webView = self.webView else { return }
             self.timeline.mark("shellLoadStart")
             webView.loadHTMLString(ShellHTML.page(for: self.request),
-                                   baseURL: URL(string: self.request.baseURL))
+                                   baseURL: DebugConsole.pageURL(baseURL: self.request.baseURL,
+                                                                    debug: self.isInspectable))
         }
         if let userId = request.userId, !userId.isEmpty {
             seedIdentityCookie(userId, on: webView, then: load)
