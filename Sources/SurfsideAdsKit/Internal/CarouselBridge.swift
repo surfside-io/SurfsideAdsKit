@@ -14,6 +14,8 @@ private struct BridgePayload: Decodable {
     let count: Int
     let products: [SurfsideProduct]
     let message: String?
+    let timings: ShellTimings?
+    let resources: [ShellResource]?
 }
 
 /// Owns one hidden, **one-shot** WKWebView for a single fetch: create → load →
@@ -40,6 +42,10 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
     /// and the backstop timer can all race without double-resolving.
     private var completion: ((Result<[SurfsideProduct], Error>) -> Void)?
     private var didFinish = false
+
+    private var timeline = FetchTimeline()
+    private var shellTimings: ShellTimings?
+    private var shellResources: [ShellResource] = []
 
     init(request: AdRequest, timeout: TimeInterval, isInspectable: Bool, headless: Bool = false) {
         self.request = request
@@ -77,6 +83,7 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         // untouched, so the SDK still runs and productData is still scrapeable.
         Self.compileImageSuppression { [weak self] ruleList in
             guard let self = self, !self.didFinish else { return }
+            self.timeline.mark("rulesCompiled")
             if let ruleList = ruleList { controller.add(ruleList) }
             self.buildAndLoad(config: config)
         }
@@ -127,8 +134,10 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
 
         // Seed the identity cookie BEFORE the shell loads (so the web ad core reads
         // it at init), then load. No identity → load straight away, unchanged.
+        timeline.mark("webViewHosted")
         let load: () -> Void = { [weak self] in
             guard let self = self, let webView = self.webView else { return }
+            self.timeline.mark("shellLoadStart")
             webView.loadHTMLString(ShellHTML.page(for: self.request),
                                    baseURL: URL(string: self.request.baseURL))
         }
@@ -233,7 +242,23 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         let done = completion
         completion = nil
         teardown()
+        timeline.mark("finished")
+        logTimeline(result)
         done?(result)
+    }
+
+    /// Debug-only: same opt-in as the Web Inspector, so a shipping app logs nothing.
+    private func logTimeline(_ result: Result<[SurfsideProduct], Error>) {
+        guard isInspectable else { return }
+        let outcome: String
+        switch result {
+        case .success(let products): outcome = products.isEmpty ? "empty" : "ok(\(products.count))"
+        case .failure(let error): outcome = "failed(\(error))"
+        }
+        NSLog("%@", timeline.report(zoneId: request.zoneId,
+                                    outcome: outcome,
+                                    shell: shellTimings,
+                                    resources: shellResources))
     }
 
     /// Break the retain cycle: the content controller strongly holds its message
@@ -280,6 +305,9 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
             finish(.failure(SurfsideAdsError.decodeFailed))
             return
         }
+        timeline.mark("shellReported")
+        shellTimings = payload.timings
+        shellResources = payload.resources ?? []
 
         switch payload.status {
         case "ok":
@@ -305,6 +333,10 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         } else {
             completionHandler(.performDefaultHandling, nil)
         }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        timeline.mark("shellLoaded")
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

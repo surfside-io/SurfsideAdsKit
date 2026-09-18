@@ -111,6 +111,20 @@ enum ShellHTML {
           var EXPECTED = \(request.maxItems);
           var MAX_WAIT_MS = 8000, POLL_MS = 250;
           var waited = 0, lastCount = -1, stableTicks = 0;
+          var sdkDefinedMs = null, firstCardMs = null;
+
+          function sdkDefined() {
+            return !!(window.customElements && customElements.get('surf-carousel'));
+          }
+
+          // Every request the page made (r.js, config, geo, bid, product feeds),
+          // so a fetch that never bids is visible as a missing row.
+          function resources() {
+            if (!window.performance || !performance.getEntriesByType) return [];
+            return performance.getEntriesByType('resource').map(function (e) {
+              return { name: e.name, startMs: e.startTime, durationMs: e.duration };
+            });
+          }
 
           // Some fields come back as the literal string "null" or "" — treat those
           // as absent so Swift sees a real nil instead of the text "null".
@@ -185,7 +199,10 @@ enum ShellHTML {
             var arr = products || [];
             window.webkit.messageHandlers.\(AdRequest.channelName).postMessage(JSON.stringify({
               status: status, expected: EXPECTED, count: arr.length,
-              products: arr, message: message || null
+              products: arr, message: message || null,
+              timings: { sdkDefinedMs: sdkDefinedMs, firstCardMs: firstCardMs,
+                         postedMs: performance.now() },
+              resources: resources()
             }));
           }
 
@@ -193,6 +210,8 @@ enum ShellHTML {
             waited += POLL_MS;
             var products = readProducts();
             var count = products ? products.length : 0;
+            if (sdkDefinedMs === null && sdkDefined()) sdkDefinedMs = performance.now();
+            if (firstCardMs === null && count > 0) firstCardMs = performance.now();
 
             // Settle heuristic: cards present and count unchanged for 2 ticks.
             if (count > 0 && count === lastCount) {
@@ -213,8 +232,7 @@ enum ShellHTML {
                 // "empty" from "timeout": r.js registers the custom element,
                 // so if it's defined the SDK executed and simply served
                 // nothing (empty); if it's not, r.js never loaded (timeout).
-                var sdkRan = !!(window.customElements &&
-                                customElements.get('surf-carousel'));
+                var sdkRan = sdkDefined();
                 send(sdkRan ? 'empty' : 'timeout', products,
                      'no cards mounted before timeout');
               }
