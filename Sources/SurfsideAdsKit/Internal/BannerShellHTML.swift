@@ -82,9 +82,19 @@ enum BannerShellHTML {
     private static func watcherJS() -> String {
         """
         (function () {
-          var MAX_WAIT_MS = 8000, POLL_MS = 200;
+          var MAX_WAIT_MS = 8000, POLL_MS = 50, EMPTY_GRACE_MS = 300;
           var waited = 0, sent = false;
-          var sdkDefinedMs = null;
+          var sdkDefinedMs = null, bidDoneMs = null;
+
+          // <surf-banner> makes one bid request and renders synchronously when it
+          // returns; a no-bid just returns, with no retry. So "the bid request has
+          // finished and nothing rendered shortly after" is a definite empty.
+          function bidFinished() {
+            if (!window.performance || !performance.getEntriesByType) return false;
+            return performance.getEntriesByType('resource').some(function (e) {
+              return e.name.indexOf('/rtb/bids') !== -1;
+            });
+          }
 
           function sdkDefined() {
             return !!(window.customElements && customElements.get('surf-banner'));
@@ -127,6 +137,12 @@ enum BannerShellHTML {
                 report({ status: 'filled', width: size.w, height: size.h });
                 return;
               }
+            }
+            if (!sent && bidDoneMs === null && bidFinished()) bidDoneMs = performance.now();
+            if (!sent && bidDoneMs !== null && performance.now() - bidDoneMs >= EMPTY_GRACE_MS) {
+              sent = true; clearInterval(timer);
+              report({ status: 'empty' });
+              return;
             }
             if (waited >= MAX_WAIT_MS) {
               clearInterval(timer);

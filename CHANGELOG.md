@@ -8,6 +8,14 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ## Unreleased
 
+### Faster
+
+- **No more waiting out the ceiling.** A carousel fetch returns as soon as cards mount
+  (the old settle wait cost 0.5 to 0.75s) and reports no fill as soon as the carousel
+  removes itself (was about 8.5s on a device). A no-fill banner collapses about 0.3s after
+  its bid request finishes (was about 8.3s). The 8s ceiling remains as a backstop.
+- The image-suppression rule list is compiled once per process instead of per fetch.
+
 ### Diagnostics
 
 - With `isInspectable: true`, every fetch and banner load logs a timeline: native stages,
