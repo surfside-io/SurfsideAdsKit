@@ -10,6 +10,13 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ### Faster
 
+- **Persistent ad page** (`Configuration.keepsPageWarm`, default `true`): each `SurfsideAds`
+  instance keeps one hidden page alive and serves every `fetchProducts` call from it. On an
+  iPhone a warm fetch takes about 0.1s (about 0.45s through a fresh WebView), and concurrent
+  fetches share the page. The page reloads on identity change, is recycled periodically, is
+  released in the background and on memory warnings, and survives a web content process
+  death. It holds roughly 20 MiB in a WebKit content process while the app is foregrounded.
+  Hold on to your `SurfsideAds` instance to benefit.
 - **No more waiting out the ceiling.** A carousel fetch returns as soon as cards mount
   (the old settle wait cost 0.5 to 0.75s) and reports no fill as soon as the carousel
   removes itself (was about 8.5s on a device). A no-fill banner collapses about 0.3s after
@@ -21,7 +28,7 @@ All notable changes to SurfsideAdsKit. This project follows
 
 - With `isInspectable: true`, every fetch and banner load logs a timeline: native stages,
   when the ad SDK was ready, when the first card or creative appeared, and every network
-  request the WebView made (query strings removed). The ad SDK also runs with
+  request the WebView made (query strings removed), plus persistent page state changes. The ad SDK also runs with
   `surf_debug=true` and its console output is forwarded to the native log, so a no-bid shows
   up as `204 - No bids available` together with the bid request that got it.
 

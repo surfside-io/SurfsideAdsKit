@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Entry point for fetching Surfside sponsored product data.
 ///
@@ -89,6 +92,16 @@ public final class SurfsideAds {
         /// events (JJRC-259; anonymous device-level id, not a person-level uid2).
         public var userId: String?
 
+        /// Keep one hidden ad page alive for this `SurfsideAds` instance and serve
+        /// every fetch from it (default `true`). The page loads the ad SDK once, as
+        /// soon as the app has a window, so a fetch costs a bid round trip instead
+        /// of a WebView start. It holds one WebKit content process while the app is
+        /// in the foreground and is dropped in the background and on memory warnings.
+        /// Set `false` to go back to one throwaway WebView per fetch. Ignored when
+        /// ``headless`` is set. Keep the `SurfsideAds` instance around to benefit:
+        /// a new instance starts a new page.
+        public var keepsPageWarm: Bool
+
         /// Creates a configuration. Only the four placement IDs are required; every
         /// other parameter has a shipping-safe default. See each property for the knobs.
         public init(
@@ -103,7 +116,8 @@ public final class SurfsideAds {
             requestTimeout: TimeInterval = 15,
             isInspectable: Bool = false,
             headless: Bool = false,
-            userId: String? = nil
+            userId: String? = nil,
+            keepsPageWarm: Bool = true
         ) {
             self.accountId = accountId
             self.siteId = siteId
@@ -117,6 +131,7 @@ public final class SurfsideAds {
             self.isInspectable = isInspectable
             self.headless = headless
             self.userId = userId
+            self.keepsPageWarm = keepsPageWarm
         }
     }
 
@@ -131,6 +146,10 @@ public final class SurfsideAds {
     /// Keeps in-flight bridges alive until they resolve. Only touched on the main
     /// thread (all fetch work hops there), so a plain array is safe.
     private var activeBridges: [CarouselBridge] = []
+
+    /// The persistent ad page (``Configuration/keepsPageWarm``). Main thread only.
+    private var page: CarouselPage?
+    private var windowObserver: NSObjectProtocol?
 
     /// Full-control initializer.
     public convenience init(configuration: Configuration, urlSession: URLSession = .shared) {
@@ -149,6 +168,41 @@ public final class SurfsideAds {
         self.configuration = configuration
         self.clickSession = urlSession
         self.identityProvider = identityProvider
+        if configuration.keepsPageWarm, !configuration.headless {
+            runOnMain { [weak self] in self?.warmPage() }
+        }
+    }
+
+    deinit {
+        if let windowObserver = windowObserver {
+            NotificationCenter.default.removeObserver(windowObserver)
+        }
+    }
+
+    /// Build and load the persistent page as soon as there is a window to host it.
+    /// An SDK created before the first window (e.g. in `didFinishLaunching`) waits
+    /// for one; with no window ever (host unit tests) this does nothing at all.
+    private func warmPage() {
+        let page = self.page ?? CarouselPage(rjsURL: configuration.rjsURL,
+                                             baseURL: configuration.baseURL,
+                                             isInspectable: configuration.isInspectable)
+        self.page = page
+        guard page.canServe else {
+            #if canImport(UIKit)
+            if windowObserver == nil {
+                windowObserver = NotificationCenter.default.addObserver(
+                    forName: UIWindow.didBecomeKeyNotification, object: nil, queue: .main
+                ) { [weak self] _ in self?.warmPage() }
+            }
+            #endif
+            return
+        }
+        if let windowObserver = windowObserver {
+            NotificationCenter.default.removeObserver(windowObserver)
+            self.windowObserver = nil
+        }
+        page.warmUp(userId: ResolvedIdentity.resolve(explicit: configuration.userId,
+                                                     provider: identityProvider))
     }
 
     /// Convenience initializer for the common case: just the four placement IDs.
@@ -211,6 +265,10 @@ public final class SurfsideAds {
         // WKWebView is main-thread-only; build and drive the bridge there.
         runOnMain { [weak self] in
             guard let self = self else { return }
+            if let page = self.page, page.canServe {
+                page.fetch(request, timeout: timeout, completion: completion)
+                return
+            }
             let bridge = CarouselBridge(request: request,
                                         timeout: timeout,
                                         isInspectable: inspectable,

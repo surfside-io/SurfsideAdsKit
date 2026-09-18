@@ -233,6 +233,7 @@ For most integrations the four-ID initializer is enough. `Configuration` exposes
 | `requestTimeout` | `15` s | Deadline before a fetch fails with `.timeout` (see [Troubleshooting](#troubleshooting) before lowering it) |
 | `userId` | `nil` | Explicit device-identity override; leave `nil` to auto-acquire from the tracker (see [Identity](#identity)) |
 | `headless` | `false` | Run the fetch WebView un-windowed. Leave `false`: WebKit throttles un-windowed web content and fetches will time out |
+| `keepsPageWarm` | `true` | Keep one hidden ad page alive per `SurfsideAds` instance and serve every fetch from it (see [Threading & lifecycle](#threading--lifecycle)). `false` restores one throwaway WebView per fetch |
 | `isInspectable` | `false` | Debug mode: attach Safari Web Inspector, log a stage-by-stage timeline for every fetch and banner load, and load the ad SDK with `surf_debug=true` so its own console output (config, the full bid request, why a placement served nothing) is forwarded to the Xcode log as `SurfsideAdsKit console [...]` lines. Verbose; **debug only** |
 
 ### `SurfsideProduct`
@@ -335,8 +336,9 @@ Banners measure themselves: an on-screen banner firing its own pixels **is** the
 ## Threading & lifecycle
 
 - Both `fetchProducts` variants can be called from anywhere; the WebView work is marshaled to the main thread internally, and the completion handler is delivered on the main thread.
-- Each fetch is **one-shot**: the package builds a fresh WebView, runs a single request, and tears it down (message handler removed, no retain cycle). There is no shared/long-lived WebView to manage.
-- `SurfsideAds` itself is cheap to hold and reuse across placements.
+- **Create one `SurfsideAds` and keep it.** Each instance owns one hidden, long-lived ad page. It loads the ad SDK once, as soon as your app has a window, and every `fetchProducts` call is served from it, so a fetch costs a bid round trip instead of a WebView start. A new instance per fetch throws that away.
+- The page is managed for you: it reloads when the resolved identity changes, is recycled periodically, is released in the background and on memory warnings, and is rebuilt (retrying in-flight fetches once) if iOS ends its web content process. It holds one WebKit content process while your app is in the foreground; set `keepsPageWarm: false` to opt out.
+- Without a window (or with `headless: true`) a fetch falls back to a **one-shot** WebView that is built, used once, and torn down.
 - A `SurfsideBannerView` loads once; create a fresh view to reload. UIKit views and banner APIs are main-thread, as usual.
 
 ---
