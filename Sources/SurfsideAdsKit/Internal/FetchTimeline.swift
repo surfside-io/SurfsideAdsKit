@@ -19,7 +19,19 @@ struct ShellResource: Decodable, Equatable {
     let durationMs: Double
 }
 
-/// Stage timestamps for one carousel fetch, in seconds since `start()`.
+/// The diagnostic half of a shell message. Decoded separately from the status so the
+/// public status parsers stay unchanged.
+struct ShellReport: Decodable {
+    let timings: ShellTimings?
+    let resources: [ShellResource]?
+
+    static func parse(message: Any) -> ShellReport? {
+        guard let json = message as? String, let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(ShellReport.self, from: data)
+    }
+}
+
+/// Stage timestamps for one carousel fetch or banner load, in seconds since `start()`.
 /// Diagnostic only; rendered to the log when `Configuration.isInspectable` is set.
 struct FetchTimeline {
 
@@ -38,11 +50,12 @@ struct FetchTimeline {
 
     /// Multi-line report: native stages with the delta from the previous stage,
     /// then the shell's own marks and the requests it made (query strings dropped).
-    func report(zoneId: String,
+    func report(kind: String = "fetch",
+                zoneId: String,
                 outcome: String,
                 shell: ShellTimings?,
                 resources: [ShellResource]) -> String {
-        var lines = ["SurfsideAdsKit fetch zone=\(zoneId) outcome=\(outcome)"]
+        var lines = ["SurfsideAdsKit \(kind) zone=\(zoneId) outcome=\(outcome)"]
         var previous: TimeInterval = 0
         for mark in marks {
             let stage = mark.stage.padding(toLength: 16, withPad: " ", startingAt: 0)
@@ -54,7 +67,7 @@ struct FetchTimeline {
         if let shell = shell {
             lines.append("  shell (ms since page start): "
                 + "sdkDefined=\(Self.ms(shell.sdkDefinedMs)) "
-                + "firstCard=\(Self.ms(shell.firstCardMs)) "
+                + "firstFill=\(Self.ms(shell.firstCardMs)) "
                 + "posted=\(Self.ms(shell.postedMs))")
         }
         for resource in resources.sorted(by: { $0.startMs < $1.startMs }) {

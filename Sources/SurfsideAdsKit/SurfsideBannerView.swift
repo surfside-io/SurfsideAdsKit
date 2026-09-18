@@ -67,6 +67,8 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
     /// The load resolves exactly once. The watcher message, a nav failure, and the
     /// backstop timer can all race; the first one wins.
     private var didResolve = false
+    private var timeline = FetchTimeline()
+    private var shellReport: ShellReport?
     private var renderedSize: CGSize?
     private var collapsed = false
 
@@ -149,6 +151,7 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
     public func load() {
         guard !hasLoaded else { return }
         hasLoaded = true
+        timeline = FetchTimeline()
 
         // Register the channel with a WEAK proxy: the content controller strongly
         // holds its handlers, so adding `self` directly would retain-cycle the view.
@@ -183,6 +186,7 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
             self?.resolve(.timeout)
         }
 
+        timeline.mark("shellLoadStart")
         webView.loadHTMLString(BannerShellHTML.page(for: request),
                                baseURL: URL(string: request.baseURL))
     }
@@ -200,6 +204,13 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
     private func resolve(_ status: SurfsideBannerStatus) {
         guard !didResolve else { return }
         didResolve = true
+        timeline.mark("resolved")
+        if isInspectable {
+            NSLog("%@", timeline.report(kind: "banner", zoneId: request.zoneId,
+                                        outcome: "\(status)",
+                                        shell: shellReport?.timings,
+                                        resources: shellReport?.resources ?? []))
+        }
 
         switch status {
         case .filled(let size):
@@ -239,6 +250,8 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
         // A malformed payload can't be trusted as fill; ignore it and let the
         // backstop time out rather than flashing an unsized WebView.
         guard let status = SurfsideBannerStatus.parse(message: message.body) else { return }
+        timeline.mark("shellReported")
+        shellReport = ShellReport.parse(message: message.body)
         resolve(status)
     }
 
@@ -279,6 +292,10 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
         } else {
             completionHandler(.performDefaultHandling, nil)
         }
+    }
+
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        timeline.mark("shellLoaded")
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

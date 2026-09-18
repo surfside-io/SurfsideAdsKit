@@ -35,7 +35,7 @@ final class FetchTimelineTests: XCTestCase {
 
         XCTAssertTrue(report.contains("zone=3ZG7D outcome=empty"))
         XCTAssertTrue(report.contains("(+8900)"))
-        XCTAssertTrue(report.contains("sdkDefined=310 firstCard=never posted=8000"))
+        XCTAssertTrue(report.contains("sdkDefined=310 firstFill=never posted=8000"))
         let rjs = try? XCTUnwrap(report.range(of: "r.js"))
         let bid = try? XCTUnwrap(report.range(of: "rtb/bids"))
         XCTAssertNotNil(rjs)

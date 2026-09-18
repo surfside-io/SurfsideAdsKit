@@ -84,6 +84,22 @@ enum BannerShellHTML {
         (function () {
           var MAX_WAIT_MS = 8000, POLL_MS = 200;
           var waited = 0, sent = false;
+          var sdkDefinedMs = null;
+
+          function sdkDefined() {
+            return !!(window.customElements && customElements.get('surf-banner'));
+          }
+
+          function report(obj) {
+            obj.timings = { sdkDefinedMs: sdkDefinedMs, firstCardMs: obj.status === 'filled' ? performance.now() : null,
+                            postedMs: performance.now() };
+            obj.resources = (window.performance && performance.getEntriesByType)
+              ? performance.getEntriesByType('resource').map(function (e) {
+                  return { name: e.name, startMs: e.startTime, durationMs: e.duration };
+                })
+              : [];
+            post(obj);
+          }
 
           function post(obj) {
             try {
@@ -103,11 +119,12 @@ enum BannerShellHTML {
 
           var timer = setInterval(function () {
             waited += POLL_MS;
+            if (sdkDefinedMs === null && sdkDefined()) sdkDefinedMs = performance.now();
             if (!sent) {
               var size = filledSize();
               if (size) {
                 sent = true; clearInterval(timer);
-                post({ status: 'filled', width: size.w, height: size.h });
+                report({ status: 'filled', width: size.w, height: size.h });
                 return;
               }
             }
@@ -116,9 +133,7 @@ enum BannerShellHTML {
               if (sent) return;
               // Element defined => the SDK executed and served nothing (empty);
               // not defined => r.js never loaded (timeout).
-              var sdkRan = !!(window.customElements &&
-                              customElements.get('surf-banner'));
-              post({ status: sdkRan ? 'empty' : 'timeout' });
+              report({ status: sdkDefined() ? 'empty' : 'timeout' });
             }
           }, POLL_MS);
         })();
