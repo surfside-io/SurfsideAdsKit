@@ -107,7 +107,7 @@ enum ShellHTML {
     /// `surfMapCards(element)` reads each mounted card's `.productData` and flattens
     /// it to our public product shape, or returns null before the carousel renders.
     static let productMappingJS = """
-        // Some fields come back as the literal string "null" or "" — treat those
+        // Some fields come back as the literal string "null" or "": treat those
         // as absent so Swift sees a real nil instead of the text "null".
         function clean(v) {
           return (v == null || v === 'null' || v === '') ? null : v;

@@ -14,17 +14,26 @@ enum PageHTML {
           <style>html, body { margin: 0; padding: 0; }</style>
         </head>
         <body>
-          <script src="\(rjsURL)"></script>
+          <script>var surfSdkFailed = false;</script>
+          <script src="\(rjsURL)" onerror="surfSdkFailed = true"></script>
           <script>
           \(ShellHTML.productMappingJS)
 
           // One call per fetch. `attrs` are the <surf-carousel> attributes, `width`
           // the forced carousel width that guarantees maxItems slots (AdRequest).
+          function sdkDefined() {
+            return !!(window.customElements && customElements.get('surf-carousel'));
+          }
+
           function surfFetch(id, attrs, width, expected) {
             var MAX_WAIT_MS = 8000, POLL_MS = 50;
             var started = performance.now();
             var seen = performance.getEntriesByType('resource').length;
             var domId = 'surf-fetch-' + id;
+
+            // 'sdkMissing' makes the native side rebuild the page: r.js loads once
+            // here, so without it no later fetch on this page could succeed either.
+            if (surfSdkFailed) { finish('sdkMissing', [], 'r.js failed to load'); return; }
 
             var el = document.createElement('surf-carousel');
             el.id = domId;
@@ -61,8 +70,10 @@ enum PageHTML {
               if (!live) { finish('empty', [], 'carousel removed itself'); return; }
               var products = surfMapCards(live) || [];
               if (products.length > 0) { finish('ok', products); return; }
+              // Backstop, same meaning as the one-shot shell: the SDK ran and
+              // served nothing we could see (empty), or it never loaded.
               if (performance.now() - started >= MAX_WAIT_MS) {
-                finish('timeout', [], 'no cards mounted before timeout');
+                finish(sdkDefined() ? 'empty' : 'sdkMissing', [], 'no cards mounted before timeout');
               }
             }, POLL_MS);
           }

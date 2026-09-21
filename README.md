@@ -337,7 +337,7 @@ Banners measure themselves: an on-screen banner firing its own pixels **is** the
 
 - Both `fetchProducts` variants can be called from anywhere; the WebView work is marshaled to the main thread internally, and the completion handler is delivered on the main thread.
 - **Create one `SurfsideAds` and keep it.** Each instance owns one hidden, long-lived ad page. It loads the ad SDK once, as soon as your app has a window, and every `fetchProducts` call is served from it, so a fetch costs a bid round trip instead of a WebView start. A new instance per fetch throws that away.
-- The page is managed for you: it reloads when the resolved identity changes, is recycled periodically, is released in the background and on memory warnings, and is rebuilt (retrying in-flight fetches once) if iOS ends its web content process. It holds one WebKit content process while your app is in the foreground; set `keepsPageWarm: false` to opt out.
+- The page is managed for you: it reloads when the resolved identity changes, is recycled periodically, is released in the background and on memory warnings (once running fetches finish), and is rebuilt (retrying in-flight fetches once) if iOS ends its web content process or the ad SDK fails to load. It holds one WebKit content process while your app is in the foreground; set `keepsPageWarm: false` to opt out.
 - Without a window (or with `headless: true`) a fetch falls back to a **one-shot** WebView that is built, used once, and torn down.
 - A `SurfsideBannerView` loads once; create a fresh view to reload. UIKit views and banner APIs are main-thread, as usual.
 

@@ -14,8 +14,9 @@ All notable changes to SurfsideAdsKit. This project follows
   instance keeps one hidden page alive and serves every `fetchProducts` call from it. On an
   iPhone a warm fetch takes about 0.1s (about 0.45s through a fresh WebView), and concurrent
   fetches share the page. The page reloads on identity change, is recycled periodically, is
-  released in the background and on memory warnings, and survives a web content process
-  death. It holds roughly 20 MiB in a WebKit content process while the app is foregrounded.
+  released in the background and on memory warnings (once running fetches finish), and
+  is rebuilt, retrying in-flight fetches once, after a web content process death or a
+  failed ad SDK load. It holds roughly 20 MiB in a WebKit content process while the app is foregrounded.
   Hold on to your `SurfsideAds` instance to benefit.
 - **No more waiting out the ceiling.** A carousel fetch returns as soon as cards mount
   (the old settle wait cost 0.5 to 0.75s) and reports no fill as soon as the carousel
@@ -31,6 +32,11 @@ All notable changes to SurfsideAdsKit. This project follows
   request the WebView made (query strings removed), plus persistent page state changes. The ad SDK also runs with
   `surf_debug=true` and its console output is forwarded to the native log, so a no-bid shows
   up as `204 - No bids available` together with the bid request that got it.
+
+### Fixed
+
+- The server trust exception for Surfside hosts matched any host containing `surfside.io`.
+  It is now a suffix match (`surfside.io` and its subdomains only).
 
 ## 1.0.0 — 2026-09-10
 

@@ -50,4 +50,33 @@ final class PageHTMLTests: XCTestCase {
         let attrs = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: String])
         XCTAssertEqual(attrs["category"], hostile)
     }
+
+    func testPageReportsAMissingSDKInsteadOfWaitingOnIt() {
+        let page = PageHTML.page(rjsURL: "//x")
+        XCTAssertTrue(page.contains("<script src=\"//x\" onerror=\"surfSdkFailed = true\"></script>"))
+        XCTAssertTrue(page.contains("if (surfSdkFailed) { finish('sdkMissing', [], 'r.js failed to load'); return; }"))
+    }
+
+    func testCeilingMeansEmptyWhenTheSDKRanLikeTheOneShotShell() {
+        let page = PageHTML.page(rjsURL: "//x")
+        XCTAssertTrue(page.contains("finish(sdkDefined() ? 'empty' : 'sdkMissing', [], 'no cards mounted before timeout')"))
+        XCTAssertFalse(page.contains("finish('timeout'"))
+    }
+
+    func testSurfsideHostIsASuffixMatch() {
+        XCTAssertTrue(CarouselBridge.isSurfsideHost("cdn.surfside.io"))
+        XCTAssertTrue(CarouselBridge.isSurfsideHost("surfside.io"))
+        XCTAssertFalse(CarouselBridge.isSurfsideHost("surfside.io.example.com"))
+        XCTAssertFalse(CarouselBridge.isSurfsideHost("notsurfside.io"))
+    }
+
+    func testReleasingThePageFailsFetchesStillWaiting() {
+        let done = expectation(description: "completion")
+        var page: CarouselPage? = CarouselPage(rjsURL: "//x", baseURL: "https://x", isInspectable: false)
+        page?.fetch(request(), timeout: 15) { result in
+            if case .failure = result { done.fulfill() }
+        }
+        page = nil
+        wait(for: [done], timeout: 2)
+    }
 }

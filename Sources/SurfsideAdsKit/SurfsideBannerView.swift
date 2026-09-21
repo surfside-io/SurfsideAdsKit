@@ -287,7 +287,7 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
     public func webView(_ webView: WKWebView,
                         didReceive challenge: URLAuthenticationChallenge,
                         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        if challenge.protectionSpace.host.contains("surfside.io"),
+        if CarouselBridge.isSurfsideHost(challenge.protectionSpace.host),
            let trust = challenge.protectionSpace.serverTrust {
             completionHandler(.useCredential, URLCredential(trust: trust))
         } else {
