@@ -144,7 +144,7 @@ final class CarouselPage: NSObject, WKScriptMessageHandler, WKNavigationDelegate
         if state == .cold {
             load(userId: request.userId, reason: "first fetch")
         } else if !isHosted {
-            rebuild(reason: "host window went away", failure: .timeout)
+            rebuild(reason: "host window went away", failure: .loadFailed("the ad page lost its window twice"))
         } else {
             drain()
         }
@@ -482,7 +482,7 @@ final class CarouselPage: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        rebuild(reason: "web content process ended", failure: .timeout)
+        rebuild(reason: "web content process ended", failure: .loadFailed("the web content process ended twice"))
     }
 
     func webView(_ webView: WKWebView,
