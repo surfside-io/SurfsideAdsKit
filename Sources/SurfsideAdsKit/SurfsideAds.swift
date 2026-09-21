@@ -266,7 +266,11 @@ public final class SurfsideAds {
         runOnMain { [weak self] in
             guard let self = self else { return }
             if let page = self.page, page.canServe {
-                page.fetch(request, timeout: timeout, completion: completion)
+                // The fetch keeps its page alive until it resolves, so a host that lets go
+                // of `SurfsideAds` mid-fetch still gets its products, as in 1.0.0.
+                page.fetch(request, timeout: timeout) { result in
+                    withExtendedLifetime(page) { completion(result) }
+                }
                 return
             }
             let bridge = CarouselBridge(request: request,
