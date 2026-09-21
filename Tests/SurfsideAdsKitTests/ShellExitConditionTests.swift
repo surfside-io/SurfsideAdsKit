@@ -36,6 +36,11 @@ final class ShellExitConditionTests: XCTestCase {
         XCTAssertTrue(bannerPage.contains("e.name.indexOf('/rtb/bids') !== -1"))
     }
 
+    func testBannerGivesUpAfterAShortGraceWhenOffline() {
+        XCTAssertTrue(bannerPage.contains("OFFLINE_GRACE_MS = 1000"))
+        XCTAssertTrue(bannerPage.contains("navigator.onLine === false && waited >= OFFLINE_GRACE_MS"))
+    }
+
     func testBothShellsKeepTheCeilingAsABackstop() {
         XCTAssertTrue(carouselPage.contains("MAX_WAIT_MS = 8000"))
         XCTAssertTrue(bannerPage.contains("MAX_WAIT_MS = 8000"))

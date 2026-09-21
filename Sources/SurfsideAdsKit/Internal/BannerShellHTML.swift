@@ -82,7 +82,7 @@ enum BannerShellHTML {
     private static func watcherJS() -> String {
         """
         (function () {
-          var MAX_WAIT_MS = 8000, POLL_MS = 50, EMPTY_GRACE_MS = 300;
+          var MAX_WAIT_MS = 8000, POLL_MS = 50, EMPTY_GRACE_MS = 300, OFFLINE_GRACE_MS = 1000;
           var waited = 0, sent = false;
           var sdkDefinedMs = null, bidDoneMs = null;
 
@@ -142,6 +142,13 @@ enum BannerShellHTML {
             if (!sent && bidDoneMs !== null && performance.now() - bidDoneMs >= EMPTY_GRACE_MS) {
               sent = true; clearInterval(timer);
               report({ status: 'empty' });
+              return;
+            }
+            // Offline, the bid (or the geo call in front of it) fails at the network level
+            // and leaves no Resource Timing entry, so the rule above never fires.
+            if (!sent && navigator.onLine === false && waited >= OFFLINE_GRACE_MS) {
+              sent = true; clearInterval(timer);
+              report({ status: sdkDefined() ? 'empty' : 'timeout' });
               return;
             }
             if (waited >= MAX_WAIT_MS) {
