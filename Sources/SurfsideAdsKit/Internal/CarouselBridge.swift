@@ -218,6 +218,12 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { loadOnce() }
     }
 
+    /// Suffix match: `surfside.io.example.com` is not ours.
+    static func isSurfsideHost(_ host: String) -> Bool {
+        let host = host.lowercased()
+        return host == "surfside.io" || host.hasSuffix(".surfside.io")
+    }
+
     /// Build `surfid.<hash>=<domainUserId>.<…>`. The web read regex
     /// (`surfid.(?<site_hash>[a-z0-9]+)=`) accepts any hex hash and takes only the
     /// FIRST dotted field, so only `userId` is load-bearing; the trailing fields
@@ -339,7 +345,7 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
     func webView(_ webView: WKWebView,
                  didReceive challenge: URLAuthenticationChallenge,
                  completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        if challenge.protectionSpace.host.contains("surfside.io"),
+        if Self.isSurfsideHost(challenge.protectionSpace.host),
            let trust = challenge.protectionSpace.serverTrust {
             completionHandler(.useCredential, URLCredential(trust: trust))
         } else {

@@ -103,6 +103,79 @@ enum ShellHTML {
         """
     }
 
+    /// Card -> product mapping shared by the one-shot shell and the persistent page:
+    /// `surfMapCards(element)` reads each mounted card's `.productData` and flattens
+    /// it to our public product shape, or returns null before the carousel renders.
+    static let productMappingJS = """
+        // Some fields come back as the literal string "null" or "": treat those
+        // as absent so Swift sees a real nil instead of the text "null".
+        function clean(v) {
+          return (v == null || v === 'null' || v === '') ? null : v;
+        }
+
+        // ext carries catalog extras (variants/sizes/keys). We expose it as a
+        // flat string map, so stringify anything non-primitive and clean the rest.
+        function flattenExt(ext) {
+          if (!ext || typeof ext !== 'object') return null;
+          var out = {}, any = false;
+          for (var k in ext) {
+            if (!Object.prototype.hasOwnProperty.call(ext, k)) continue;
+            var v = ext[k];
+            if (v == null) continue;
+            var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+            s = clean(s);
+            if (s != null) { out[k] = s; any = true; }
+          }
+          return any ? out : null;
+        }
+
+        // Pull tracker URLs out of the built card's trackers object. A tracker
+        // is {type:'pixel', url} or {type:'script', src}. When pixelOnly is set
+        // we keep only the img pixels, the ones the fetch WebView's image
+        // suppression actually blocks, so firing them on display can't double
+        // count. Script trackers fire once at fetch (unsuppressed) and are left
+        // out of the fire set on purpose.
+        function trackerUrls(named, key, pixelOnly) {
+          var arr = named && named[key];
+          if (!Array.prototype.slice.call(arr || []).length) return [];
+          return Array.prototype.slice.call(arr)
+            .filter(function (t) { return t && (!pixelOnly || t.type === 'pixel'); })
+            .map(function (t) { return t && (t.url || t.src); })
+            .filter(function (u) { return typeof u === 'string' && u; });
+        }
+
+        function surfMapCards(carousel) {
+          var root = carousel && carousel.shadowRoot;
+          var items = root && root.querySelector('.items');
+          if (!items) return null;
+          return Array.prototype.slice.call(items.children)
+            .map(function (c) { return c.productData; })
+            .filter(function (pd) { return pd && pd.product; })
+            .map(function (pd) {
+              var p = pd.product;
+              var named = (pd.trackers && pd.trackers.namedTrackers) || {};
+              return {
+                id: String(p.id != null ? p.id : ''),
+                name: clean(p.name),
+                price: clean(p.price),
+                salePrice: clean(p.salePrice),
+                image: clean(p.image),
+                brandName: clean(p.brandName || p.brand_name),
+                productType: clean(p.productType),
+                thc: clean(p.thc),
+                strain: clean(p.strain),
+                cbd: clean(p.cbd),
+                clickthrough: clean(pd.clickthrough),
+                sponsored: !!pd.sponsored,
+                ext: flattenExt(p.ext),
+                winTrackers: trackerUrls(named, 'win', true),
+                impressionTrackers: trackerUrls(named, 'impression', true),
+                viewableTrackers: trackerUrls(named, 'viewable', false)
+              };
+            });
+        }
+        """
+
     /// The injected poller. Reads each mounted card's `.productData`, flattens it
     /// to our public product shape, and posts a JSON envelope over the bridge.
     private static func scraperJS(for request: AdRequest) -> String {
@@ -126,73 +199,10 @@ enum ShellHTML {
             });
           }
 
-          // Some fields come back as the literal string "null" or "" — treat those
-          // as absent so Swift sees a real nil instead of the text "null".
-          function clean(v) {
-            return (v == null || v === 'null' || v === '') ? null : v;
-          }
-
-          // ext carries catalog extras (variants/sizes/keys). We expose it as a
-          // flat string map, so stringify anything non-primitive and clean the rest.
-          function flattenExt(ext) {
-            if (!ext || typeof ext !== 'object') return null;
-            var out = {}, any = false;
-            for (var k in ext) {
-              if (!Object.prototype.hasOwnProperty.call(ext, k)) continue;
-              var v = ext[k];
-              if (v == null) continue;
-              var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
-              s = clean(s);
-              if (s != null) { out[k] = s; any = true; }
-            }
-            return any ? out : null;
-          }
-
-          // Pull tracker URLs out of the built card's trackers object. A tracker
-          // is {type:'pixel', url} or {type:'script', src}. When pixelOnly is set
-          // we keep only the img pixels, the ones the fetch WebView's image
-          // suppression actually blocks, so firing them on display can't double
-          // count. Script trackers fire once at fetch (unsuppressed) and are left
-          // out of the fire set on purpose.
-          function trackerUrls(named, key, pixelOnly) {
-            var arr = named && named[key];
-            if (!Array.prototype.slice.call(arr || []).length) return [];
-            return Array.prototype.slice.call(arr)
-              .filter(function (t) { return t && (!pixelOnly || t.type === 'pixel'); })
-              .map(function (t) { return t && (t.url || t.src); })
-              .filter(function (u) { return typeof u === 'string' && u; });
-          }
+          \(productMappingJS)
 
           function readProducts() {
-            var carousel = document.querySelector('surf-carousel');
-            var root = carousel && carousel.shadowRoot;
-            var items = root && root.querySelector('.items');
-            if (!items) return null;
-            return Array.prototype.slice.call(items.children)
-              .map(function (c) { return c.productData; })
-              .filter(function (pd) { return pd && pd.product; })
-              .map(function (pd) {
-                var p = pd.product;
-                var named = (pd.trackers && pd.trackers.namedTrackers) || {};
-                return {
-                  id: String(p.id != null ? p.id : ''),
-                  name: clean(p.name),
-                  price: clean(p.price),
-                  salePrice: clean(p.salePrice),
-                  image: clean(p.image),
-                  brandName: clean(p.brandName || p.brand_name),
-                  productType: clean(p.productType),
-                  thc: clean(p.thc),
-                  strain: clean(p.strain),
-                  cbd: clean(p.cbd),
-                  clickthrough: clean(pd.clickthrough),
-                  sponsored: !!pd.sponsored,
-                  ext: flattenExt(p.ext),
-                  winTrackers: trackerUrls(named, 'win', true),
-                  impressionTrackers: trackerUrls(named, 'impression', true),
-                  viewableTrackers: trackerUrls(named, 'viewable', false)
-                };
-              });
+            return surfMapCards(document.querySelector('surf-carousel'));
           }
 
           function send(status, products, message) {
