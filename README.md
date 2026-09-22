@@ -378,7 +378,7 @@ To inspect your own integration:
 **Every fetch times out**
 
 - `headless: true` is the usual cause: WebKit throttles un-windowed web content, so the SDK's JS stalls. Leave `headless` at its default (`false`).
-- Don't lower `requestTimeout` aggressively. The JS side has an 8s internal ceiling that only starts once r.js has loaded (a cold CDN fetch can take ~3s), so the Swift backstop needs real headroom above 8s; too tight and genuine no-fill misreports as `.timeout`.
+- Don't lower `requestTimeout` aggressively. A fetch normally resolves well under a second (cards mounted, or the carousel removed itself on no fill), but the JS side keeps an 8s backstop that only starts once r.js has loaded (a cold CDN fetch can take ~3s), so the Swift backstop needs real headroom above 8s.
 - Check the four placement IDs and the zone id: a placement that can never serve mounts nothing, which surfaces as `.timeout`, not as an error message.
 
 **Fetch succeeds but the array is empty**

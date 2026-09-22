@@ -68,7 +68,7 @@ enum ShellHTML {
     ///
     /// Two `<script>`s matter here: `r.js` registers `<surf-carousel>` and renders
     /// it ASYNCHRONOUSLY (bid request + debounce), so the scraper can't run once —
-    /// it polls until the card count settles, then posts the array back to Swift.
+    /// it polls until cards mount or the carousel removes itself, then posts back.
     static func page(for request: AdRequest) -> String {
         """
         <!DOCTYPE html>
@@ -109,8 +109,8 @@ enum ShellHTML {
         """
         (function () {
           var EXPECTED = \(request.maxItems);
-          var MAX_WAIT_MS = 8000, POLL_MS = 250;
-          var waited = 0, lastCount = -1, stableTicks = 0;
+          var MAX_WAIT_MS = 8000, POLL_MS = 50;
+          var waited = 0;
           var sdkDefinedMs = null, firstCardMs = null;
 
           function sdkDefined() {
@@ -213,29 +213,24 @@ enum ShellHTML {
             if (sdkDefinedMs === null && sdkDefined()) sdkDefinedMs = performance.now();
             if (firstCardMs === null && count > 0) firstCardMs = performance.now();
 
-            // Settle heuristic: cards present and count unchanged for 2 ticks.
-            if (count > 0 && count === lastCount) {
-              stableTicks++;
-              if (stableTicks >= 2) { clearInterval(timer); send('ok', products); return; }
-            } else {
-              stableTicks = 0;
+            // The SDK awaits the whole first page, then appends every card in one
+            // synchronous loop, so the first non-zero count is already final.
+            if (count > 0) { clearInterval(timer); send('ok', products); return; }
+
+            // No fill: the SDK removes <surf-carousel> once its first page comes
+            // back empty (after the recommender fallback under hybrid), so
+            // "SDK ran and the element is gone" is a definite empty.
+            if (sdkDefined() && !document.querySelector('surf-carousel')) {
+              clearInterval(timer); send('empty', [], 'carousel removed itself'); return;
             }
-            lastCount = count;
 
             if (waited >= MAX_WAIT_MS) {
               clearInterval(timer);
-              if (count > 0) { send('ok', products); }
-              else {
-                // The SDK REMOVES <surf-carousel> from the DOM when the zone
-                // has no fill (verified live), so element-gone is not a signal
-                // that nothing ran. Whether the SDK ran at all is what splits
-                // "empty" from "timeout": r.js registers the custom element,
-                // so if it's defined the SDK executed and simply served
-                // nothing (empty); if it's not, r.js never loaded (timeout).
-                var sdkRan = sdkDefined();
-                send(sdkRan ? 'empty' : 'timeout', products,
-                     'no cards mounted before timeout');
-              }
+              // Backstop only. r.js registers the custom element, so defined
+              // means the SDK ran and served nothing we could see (empty); not
+              // defined means r.js never loaded (timeout).
+              send(sdkDefined() ? 'empty' : 'timeout', [],
+                   'no cards mounted before timeout');
             }
           }, POLL_MS);
         })();

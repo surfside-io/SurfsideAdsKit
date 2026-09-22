@@ -166,9 +166,16 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
     /// Yields `nil` if the store is unavailable or compilation fails; a failed
     /// compile must not block a fetch, it just means pixels aren't suppressed for
     /// that run.
-    private static func compileImageSuppression(
+    /// Main-thread only, like the rest of the bridge.
+    private static var cachedRuleList: WKContentRuleList?
+
+    static func compileImageSuppression(
         _ completion: @escaping (WKContentRuleList?) -> Void
     ) {
+        if let cached = cachedRuleList {
+            completion(cached)
+            return
+        }
         guard let store = WKContentRuleListStore.default() else {
             completion(nil)
             return
@@ -177,8 +184,11 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
             forIdentifier: suppressionIdentifier,
             encodedContentRuleList: suppressionRules
         ) { list, _ in
-            if Thread.isMainThread { completion(list) }
-            else { DispatchQueue.main.async { completion(list) } }
+            let deliver = {
+                cachedRuleList = list
+                completion(list)
+            }
+            if Thread.isMainThread { deliver() } else { DispatchQueue.main.async(execute: deliver) }
         }
     }
 
