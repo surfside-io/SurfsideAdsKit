@@ -23,8 +23,9 @@ Carousel and banner latency. Nothing to change in your code; two things to know:
   iPhone a warm fetch takes about 0.1s (about 0.45s through a fresh WebView), and concurrent
   fetches share the page. The page reloads on identity change, is recycled periodically, is
   released in the background and on memory warnings (once running fetches finish), and
-  is rebuilt, retrying in-flight fetches once, after a web content process death or a
-  failed ad SDK load. It holds roughly 20 MiB in a WebKit content process while the app is foregrounded.
+  is rebuilt, retrying in-flight fetches once, after a web content process death, a
+  failed ad SDK load, or the closing of the window that hosts it (an iPad window closed
+  from the app switcher). It holds roughly 20 MiB in a WebKit content process while the app is foregrounded.
   Hold on to your `SurfsideAds` instance to benefit.
 - **No more waiting out the ceiling.** A carousel fetch returns as soon as cards mount
   (the old settle wait cost 0.5 to 0.75s) and reports no fill as soon as the carousel
