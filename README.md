@@ -191,6 +191,7 @@ Banner semantics, in contrast to the product fetch:
 - **Nothing is suppressed.** The banner is a real on-screen render, so the SDK's own win/impression pixels firing is correct measurement. There is no `recordImpression` to call for banners.
 - **Load outcomes** surface via the delegate (or the SwiftUI closures): loaded (with the measured creative size when readable), no-fill (the view has already collapsed; treat it as normal), or a genuine error.
 - **Loading is one-shot per view.** `autoLoad` (default `true`) loads on first entering a window; set it `false` and call `load()` to drive it manually. To reload, create a fresh view.
+- **Keep banners out of lazy containers.** A `SurfsideBanner` inside a `LazyVStack` or `List` is recreated every time its row scrolls back into view, and each recreation runs a new auction and counts a new impression. Host it in a plain `VStack`, or above or below the lazy list.
 
 ---
 

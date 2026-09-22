@@ -6,7 +6,15 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ---
 
-## Unreleased
+## 1.1.0 (2026-09-22)
+
+Carousel and banner latency. Nothing to change in your code; two things to know:
+
+- **Hold on to your `SurfsideAds` instance.** The speed-up comes from a hidden page that
+  lives as long as the instance does; a new instance per fetch gets the old one-shot path.
+- **One WebKit content process** (about 35 MiB on an iPhone, a 33 to 52 MiB range under
+  steady use) stays alive while your app is in the foreground. It is released in the
+  background and on memory warnings. `keepsPageWarm: false` opts out.
 
 ### Faster
 
@@ -15,8 +23,9 @@ All notable changes to SurfsideAdsKit. This project follows
   iPhone a warm fetch takes about 0.1s (about 0.45s through a fresh WebView), and concurrent
   fetches share the page. The page reloads on identity change, is recycled periodically, is
   released in the background and on memory warnings (once running fetches finish), and
-  is rebuilt, retrying in-flight fetches once, after a web content process death or a
-  failed ad SDK load. It holds roughly 20 MiB in a WebKit content process while the app is foregrounded.
+  is rebuilt, retrying in-flight fetches once, after a web content process death, a
+  failed ad SDK load, or the closing of the window that hosts it (an iPad window closed
+  from the app switcher). It holds roughly 20 MiB in a WebKit content process while the app is foregrounded.
   Hold on to your `SurfsideAds` instance to benefit.
 - **No more waiting out the ceiling.** A carousel fetch returns as soon as cards mount
   (the old settle wait cost 0.5 to 0.75s) and reports no fill as soon as the carousel
@@ -38,7 +47,7 @@ All notable changes to SurfsideAdsKit. This project follows
 - The server trust exception for Surfside hosts matched any host containing `surfside.io`.
   It is now a suffix match (`surfside.io` and its subdomains only).
 
-## 1.0.0 — 2026-09-10
+## 1.0.0 (2026-09-10)
 
 First tagged release. Everything below shipped to `main` through PRs #1, #3, #5, and #6
 and is released together as 1.0.0.
