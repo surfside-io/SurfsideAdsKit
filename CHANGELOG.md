@@ -6,6 +6,16 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ---
 
+## Unreleased
+
+### Diagnostics
+
+- With `isInspectable: true`, every fetch and banner load logs a timeline: native stages,
+  when the ad SDK was ready, when the first card or creative appeared, and every network
+  request the WebView made (query strings removed). The ad SDK also runs with
+  `surf_debug=true` and its console output is forwarded to the native log, so a no-bid shows
+  up as `204 - No bids available` together with the bid request that got it.
+
 ## 1.0.0 — 2026-09-10
 
 First tagged release. Everything below shipped to `main` through PRs #1, #3, #5, and #6

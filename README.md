@@ -233,7 +233,7 @@ For most integrations the four-ID initializer is enough. `Configuration` exposes
 | `requestTimeout` | `15` s | Deadline before a fetch fails with `.timeout` (see [Troubleshooting](#troubleshooting) before lowering it) |
 | `userId` | `nil` | Explicit device-identity override; leave `nil` to auto-acquire from the tracker (see [Identity](#identity)) |
 | `headless` | `false` | Run the fetch WebView un-windowed. Leave `false`: WebKit throttles un-windowed web content and fetches will time out |
-| `isInspectable` | `false` | Attach Safari Web Inspector to the hidden WebView; **debug only** |
+| `isInspectable` | `false` | Debug mode: attach Safari Web Inspector, log a stage-by-stage timeline for every fetch and banner load, and load the ad SDK with `surf_debug=true` so its own console output (config, the full bid request, why a placement served nothing) is forwarded to the Xcode log as `SurfsideAdsKit console [...]` lines. Verbose; **debug only** |
 
 ### `SurfsideProduct`
 
