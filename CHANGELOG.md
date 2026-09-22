@@ -6,7 +6,15 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ---
 
-## Unreleased
+## 1.1.0 (2026-09-22)
+
+Carousel and banner latency. Nothing to change in your code; two things to know:
+
+- **Hold on to your `SurfsideAds` instance.** The speed-up comes from a hidden page that
+  lives as long as the instance does; a new instance per fetch gets the old one-shot path.
+- **One WebKit content process** (about 35 MiB on an iPhone, a 33 to 52 MiB range under
+  steady use) stays alive while your app is in the foreground. It is released in the
+  background and on memory warnings. `keepsPageWarm: false` opts out.
 
 ### Faster
 
@@ -38,7 +46,7 @@ All notable changes to SurfsideAdsKit. This project follows
 - The server trust exception for Surfside hosts matched any host containing `surfside.io`.
   It is now a suffix match (`surfside.io` and its subdomains only).
 
-## 1.0.0 — 2026-09-10
+## 1.0.0 (2026-09-10)
 
 First tagged release. Everything below shipped to `main` through PRs #1, #3, #5, and #6
 and is released together as 1.0.0.
