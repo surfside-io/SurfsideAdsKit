@@ -318,6 +318,7 @@ Notes:
 - This is a **device-level id, not a person-level identity** (not a uid2). Person-level identity stays the tracker's job (`setUser`).
 - Set `Configuration.userId` only to force a specific id or when the tracker is absent and you manage your own device id.
 - If the tracker is linked but was never started, there is no id to read yet; the fetch proceeds anonymously.
+- Create the tracker before `SurfsideAds`. The tracker has its device id as soon as it is created (first launch included), and `SurfsideAds` warms its hidden page with the identity it can see at creation; created the other way round, the page loads anonymous and reloads once at the first fetch (about 0.1s on a phone).
 
 ---
 
