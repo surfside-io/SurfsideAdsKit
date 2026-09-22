@@ -109,10 +109,12 @@ final class CarouselPage: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     /// A page needs a window to live in (an un-hosted WebView's JS is throttled).
     var canServe: Bool { Self.hostWindow() != nil }
 
-    /// False once the window the page was put in has gone away.
+    /// False once the window the page was put in has gone away. A window whose scene was
+    /// closed (an iPad window closed from the app switcher) can stay alive, detached from
+    /// any scene, so the window alone is not enough.
     private var isHosted: Bool {
         #if canImport(UIKit)
-        return webView.map { $0.window != nil } ?? true
+        return webView.map { $0.window?.windowScene != nil } ?? true
         #else
         return true
         #endif
