@@ -106,7 +106,8 @@ public final class SurfsideAds {
         /// Partner development testing. The ad SDK loads with `surf_override_filtering=true`,
         /// which it forwards to the bidder: ads still serve, but the bidder records nothing
         /// (no bids, impressions, clicks, spend or frequency cap) and skips the domain
-        /// blocklist. Development builds only; never ship it on.
+        /// blocklist. Development builds only; never ship it on. `isInspectable` has the same
+        /// effect, because the ad SDK treats its `surf_debug` page as testing.
         public var developmentTesting: Bool
 
         /// Creates a configuration. Only the four placement IDs are required; every

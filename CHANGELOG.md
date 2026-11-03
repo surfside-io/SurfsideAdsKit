@@ -16,6 +16,8 @@ All notable changes to SurfsideAdsKit. This project follows
 - **`Configuration.developmentTesting`** (default `false`): partner development testing. Bid
   requests carry `surf_override_filtering=true`; ads still serve, but nothing is recorded or
   billed. Development builds only.
+- **`isInspectable` no longer records anything.** The ad SDK now treats a `surf_debug` page
+  as testing, so debug-mode impressions, clicks and spend are not recorded.
 
 ## 1.1.0 (2026-09-22)
 
