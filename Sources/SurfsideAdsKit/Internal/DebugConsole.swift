@@ -17,15 +17,9 @@ enum DebugConsole {
 
     /// `baseURL` with `surf_debug=true` added when `debug` is set.
     static func pageURL(baseURL: String, debug: Bool) -> URL? {
-        guard debug, var components = URLComponents(string: baseURL) else {
+        guard debug, let components = PageURL.addingFlag("surf_debug", to: baseURL) else {
             return URL(string: baseURL)
         }
-        var items = components.queryItems ?? []
-        if !items.contains(where: { $0.name == "surf_debug" }) {
-            items.append(URLQueryItem(name: "surf_debug", value: "true"))
-        }
-        components.queryItems = items
-        if components.path.isEmpty { components.path = "/" }
         return components.url
     }
 

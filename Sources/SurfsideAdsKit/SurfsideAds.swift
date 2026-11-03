@@ -146,15 +146,10 @@ public final class SurfsideAds {
 
         /// `baseURL`, plus the development-testing flag the ad SDK reads from its page URL.
         var pageBaseURL: String {
-            guard developmentTesting, var components = URLComponents(string: baseURL) else {
+            guard developmentTesting,
+                  let components = PageURL.addingFlag(Self.developmentTestingParameter, to: baseURL) else {
                 return baseURL
             }
-            var items = components.queryItems ?? []
-            if !items.contains(where: { $0.name == Self.developmentTestingParameter }) {
-                items.append(URLQueryItem(name: Self.developmentTestingParameter, value: "true"))
-            }
-            components.queryItems = items
-            if components.path.isEmpty { components.path = "/" }
             return components.string ?? baseURL
         }
 
