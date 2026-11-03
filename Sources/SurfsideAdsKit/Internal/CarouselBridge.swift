@@ -66,6 +66,7 @@ final class CarouselBridge: NSObject, WKScriptMessageHandler, WKNavigationDelega
         let controller = WKUserContentController()
         controller.add(self, name: AdRequest.channelName)
         DebugConsole.install(on: controller, label: "fetch \(request.zoneId)", debug: isInspectable)
+        HostAppScript.install(on: controller)
 
         let config = WKWebViewConfiguration()
         config.userContentController = controller

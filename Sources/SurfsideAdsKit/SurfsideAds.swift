@@ -53,7 +53,8 @@ public final class SurfsideAds {
         /// Product keywords to serve against. See `category` for the render gate.
         public var keywords: String
 
-        /// Pinned r.js bundle. Override only to test against a different build.
+        /// Pinned r.js bundle: the app build, which sends app-only bid requests carrying
+        /// the host app's bundle id. Override only to test against a different build.
         public var rjsURL: String
         /// Fake https origin the shell loads under, so CSP/CORS behave.
         public var baseURL: String
@@ -102,6 +103,12 @@ public final class SurfsideAds {
         /// a new instance starts a new page.
         public var keepsPageWarm: Bool
 
+        /// Partner development testing. The ad SDK loads with `surf_override_filtering=true`,
+        /// which it forwards to the bidder: ads still serve, but the bidder records nothing
+        /// (no bids, impressions, clicks, spend or frequency cap) and skips the domain
+        /// blocklist. Development builds only; never ship it on.
+        public var developmentTesting: Bool
+
         /// Creates a configuration. Only the four placement IDs are required; every
         /// other parameter has a shipping-safe default. See each property for the knobs.
         public init(
@@ -111,13 +118,14 @@ public final class SurfsideAds {
             locationId: String,
             category: String = "all",
             keywords: String = "product",
-            rjsURL: String = "//cdn.surfside.io/ads/2.0.0/r.js",
+            rjsURL: String = "//cdn.surfside.io/ads/2.0.0/app/r.js",
             baseURL: String = "https://internalhost.com",
             requestTimeout: TimeInterval = 15,
             isInspectable: Bool = false,
             headless: Bool = false,
             userId: String? = nil,
-            keepsPageWarm: Bool = true
+            keepsPageWarm: Bool = true,
+            developmentTesting: Bool = false
         ) {
             self.accountId = accountId
             self.siteId = siteId
@@ -132,7 +140,24 @@ public final class SurfsideAds {
             self.headless = headless
             self.userId = userId
             self.keepsPageWarm = keepsPageWarm
+            self.developmentTesting = developmentTesting
         }
+
+        /// `baseURL`, plus the development-testing flag the ad SDK reads from its page URL.
+        var pageBaseURL: String {
+            guard developmentTesting, var components = URLComponents(string: baseURL) else {
+                return baseURL
+            }
+            var items = components.queryItems ?? []
+            if !items.contains(where: { $0.name == Self.developmentTestingParameter }) {
+                items.append(URLQueryItem(name: Self.developmentTestingParameter, value: "true"))
+            }
+            components.queryItems = items
+            if components.path.isEmpty { components.path = "/" }
+            return components.string ?? baseURL
+        }
+
+        static let developmentTestingParameter = "surf_override_filtering"
     }
 
     private let configuration: Configuration
@@ -184,7 +209,7 @@ public final class SurfsideAds {
     /// for one; with no window ever (host unit tests) this does nothing at all.
     private func warmPage() {
         let page = self.page ?? CarouselPage(rjsURL: configuration.rjsURL,
-                                             baseURL: configuration.baseURL,
+                                             baseURL: configuration.pageBaseURL,
                                              isInspectable: configuration.isInspectable)
         self.page = page
         guard page.canServe else {
@@ -301,7 +326,7 @@ public final class SurfsideAds {
             strategy: strategy.rawValue,
             maxItems: max(1, maxItems),
             rjsURL: configuration.rjsURL,
-            baseURL: configuration.baseURL,
+            baseURL: configuration.pageBaseURL,
             userId: ResolvedIdentity.resolve(
                 explicit: configuration.userId,
                 provider: identityProvider

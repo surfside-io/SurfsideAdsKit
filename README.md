@@ -229,12 +229,13 @@ For most integrations the four-ID initializer is enough. `Configuration` exposes
 |---|---|---|
 | `accountId`, `siteId`, `channelId`, `locationId` | required | Placement identity |
 | `category`, `keywords` | `"all"`, `"product"` | Required by the SDK for a placement to serve |
-| `rjsURL` | `//cdn.surfside.io/ads/2.0.0/r.js` | Pinned SDK bundle; override only to test another build |
+| `rjsURL` | `//cdn.surfside.io/ads/2.0.0/app/r.js` | Pinned SDK bundle: the app build, which sends app-only bid requests with your app's bundle id. Override only to test another build |
 | `baseURL` | `https://internalhost.com` | Synthetic https origin the shell loads under, so CSP/CORS behave |
 | `requestTimeout` | `15` s | Deadline before a fetch fails with `.timeout` (see [Troubleshooting](#troubleshooting) before lowering it) |
 | `userId` | `nil` | Explicit device-identity override; leave `nil` to auto-acquire from the tracker (see [Identity](#identity)) |
 | `headless` | `false` | Run the fetch WebView un-windowed. Leave `false`: WebKit throttles un-windowed web content and fetches will time out |
 | `keepsPageWarm` | `true` | Keep one hidden ad page alive per `SurfsideAds` instance and serve every fetch from it (see [Threading & lifecycle](#threading--lifecycle)). `false` restores one throwaway WebView per fetch |
+| `developmentTesting` | `false` | Partner development testing: ads still serve, but nothing is recorded or billed (see [Verifying your integration](#verifying-your-integration)). **Development builds only** |
 | `isInspectable` | `false` | Debug mode: attach Safari Web Inspector, log a stage-by-stage timeline for every fetch and banner load, and load the ad SDK with `surf_debug=true` so its own console output (config, the full bid request, why a placement served nothing) is forwarded to the Xcode log as `SurfsideAdsKit console [...]` lines. Verbose; **debug only** |
 
 ### `SurfsideProduct`
@@ -374,6 +375,7 @@ To inspect your own integration:
 1. **Watch the hidden WebView.** Set `isInspectable: true` in a debug build, run on a simulator or device, and attach Safari ▸ Develop ▸ your device. You can see r.js load, the bid request, and the mounted cards.
 2. **Watch the pixels.** Run through a proxy (Charles, Proxyman, mitmproxy) and confirm: no win/impression requests at fetch time, then the win + impression GETs when `recordImpression` fires, and the click GET on `recordClick`.
 3. **Confirm identity.** With the tracker linked and started, the ad request URL carries the tracker's device id. Anonymous runs are valid too; see [Identity](#identity).
+4. **Test without recording anything.** Set `developmentTesting: true` in a development build. Bid requests then go to the bidder with `surf_override_filtering=true`: ads still serve, but no bid, impression, click, spend or frequency-cap event is recorded, and the domain blocklist is skipped. Never ship it on; production requests must not carry the flag.
 
 ---
 
