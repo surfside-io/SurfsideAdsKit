@@ -286,6 +286,7 @@ final class CarouselPage: NSObject, WKScriptMessageHandler, WKNavigationDelegate
         // on real display via recordImpression.
         if let ruleList = ruleList { controller.add(ruleList) }
         DebugConsole.install(on: controller, label: "page", debug: isInspectable)
+        HostAppScript.install(on: controller)
 
         let config = WKWebViewConfiguration()
         config.userContentController = controller

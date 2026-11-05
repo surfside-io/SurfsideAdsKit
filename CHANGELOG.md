@@ -6,6 +6,19 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ---
 
+## Unreleased
+
+- **App-only bid requests.** The default `rjsURL` is now the app build of the ad SDK
+  (`//cdn.surfside.io/ads/2.0.0/app/r.js`). It sends an `app` object carrying your app's
+  bundle id and no `site` object, so requests are classified as in-app inventory instead of a
+  website at `internalhost.com`. AdsKit passes the bundle id from `Bundle.main`; nothing to
+  change in your code.
+- **`Configuration.developmentTesting`** (default `false`): partner development testing. Bid
+  requests carry `surf_override_filtering=true`; ads still serve, but nothing is recorded or
+  billed. Development builds only.
+- **`isInspectable` no longer records anything.** The ad SDK now treats a `surf_debug` page
+  as testing, so debug-mode impressions, clicks and spend are not recorded.
+
 ## 1.1.0 (2026-09-22)
 
 Carousel and banner latency. Nothing to change in your code; two things to know:
