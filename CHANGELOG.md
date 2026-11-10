@@ -12,7 +12,10 @@ All notable changes to SurfsideAdsKit. This project follows
   (`//cdn.surfside.io/ads/2.0.0/app/r.js`). It sends an `app` object carrying your app's
   bundle id and no `site` object, so requests are classified as in-app inventory instead of a
   website at `internalhost.com`. AdsKit passes the bundle id from `Bundle.main`; nothing to
-  change in your code.
+  change in your code. If you pinned `rjsURL` to the old `//cdn.surfside.io/ads/2.0.0/r.js`,
+  remove the pin or point it at the app build; the old build keeps sending website requests.
+  Without a bundle id (some test hosts), the request still goes out app-only, with the page
+  host (`internalhost.com`) as the bundle.
 - **`Configuration.developmentTesting`** (default `false`): partner development testing. Bid
   requests carry `surf_override_filtering=true`; ads still serve, but nothing is recorded or
   billed. Development builds only.
