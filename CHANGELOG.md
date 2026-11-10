@@ -6,7 +6,15 @@ All notable changes to SurfsideAdsKit. This project follows
 
 ---
 
-## Unreleased
+## 1.2.0 (2026-11-10)
+
+In-app bid requests and development testing. Nothing to change in your code; to know:
+
+- **Your traffic is now in-app inventory.** Ad requests carry your app's bundle id instead of
+  posing as a website at `internalhost.com`. Remove any `rjsURL` pin to the old bundle.
+- **Test without being billed.** Set `developmentTesting: true` in development builds only.
+
+### Changed
 
 - **App-only bid requests.** The default `rjsURL` is now the app build of the ad SDK
   (`//cdn.surfside.io/ads/2.0.0/app/r.js`). It sends an `app` object carrying your app's
@@ -16,9 +24,15 @@ All notable changes to SurfsideAdsKit. This project follows
   remove the pin or point it at the app build; the old build keeps sending website requests.
   Without a bundle id (some test hosts), the request still goes out app-only, with the page
   host (`internalhost.com`) as the bundle.
+
+### Added
+
 - **`Configuration.developmentTesting`** (default `false`): partner development testing. Bid
   requests carry `surf_override_filtering=true`; ads still serve, but nothing is recorded or
   billed. Development builds only.
+
+### Changed behaviour
+
 - **`isInspectable` no longer records anything.** The ad SDK now treats a `surf_debug` page
   as testing, so debug-mode impressions, clicks and spend are not recorded.
 
