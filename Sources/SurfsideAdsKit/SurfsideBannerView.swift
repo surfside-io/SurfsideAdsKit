@@ -99,7 +99,7 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
             width: Int(size.width.rounded()),
             height: Int(size.height.rounded()),
             rjsURL: configuration.rjsURL,
-            baseURL: configuration.baseURL
+            baseURL: configuration.pageBaseURL
         )
         self.isInspectable = configuration.isInspectable
         self.timeout = configuration.requestTimeout
@@ -158,6 +158,7 @@ public final class SurfsideBannerView: UIView, WKScriptMessageHandler, WKNavigat
         let controller = WKUserContentController()
         controller.add(WeakScriptMessageHandler(self), name: BannerRequest.channelName)
         DebugConsole.install(on: controller, label: "banner \(request.zoneId)", debug: isInspectable)
+        HostAppScript.install(on: controller)
 
         let config = WKWebViewConfiguration()
         config.userContentController = controller
